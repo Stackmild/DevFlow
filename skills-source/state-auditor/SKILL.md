@@ -329,10 +329,45 @@ anomaly type=A17, severity=High（冻结但无冲突的假 snapshot 危害等于
 
 ---
 
+### CHECK-20：Pre-Gate Self-Check 执行验证（V4.6 新增）
+
+检查 pre-gate self-check 是否被正确执行以及最终结论与流程实际行为是否一致。
+
+对每个已通过的 Gate（gate-1.yaml / gate-2.yaml / gate-3.yaml 存在）：
+
+- A: 对应的 `decisions/pre-gate-check-{N}.yaml` 是否存在
+  - 缺失 → anomaly type=A20, severity=Medium（"pre-gate check not performed before Gate {N}"）
+
+- B: 记录中 `items[]` 数量是否与协议定义匹配（Gate 1=6, Gate 2=8, Gate 3=11）
+  - 不匹配 → anomaly type=A20, severity=Medium（"pre-gate check item count mismatch"）
+
+- C: `check_version` 是否与当前协议版本一致
+  - 不一致 → anomaly type=A20, severity=Info（"pre-gate check version drift"）
+
+- D: **最终结论 vs Gate 实际行为矛盾检测**：
+  - **Attempt 识别规则**：若存在归档文件 `pre-gate-check-{N}-attempt-1.yaml`，则以最终覆盖文件 `pre-gate-check-{N}.yaml` 的 `attempt_seq` 为准；若仅存在最终文件，以该文件内 `attempt_seq` 为准
+  - 若最终 attempt 的 `result=blocked`，但 `decisions/gate-{N}.yaml` 存在（Gate 被展示了）
+    → anomaly type=A20, severity=**High**（"BLOCK semantics violated: gate presented despite blocked pre-gate check"）
+  - 这是 `protocols/pre-gate-self-check.md` §4 BLOCK 语义硬规则的自动化检测
+
+- E: 若 `attempt_seq > 1`，三项一致性检查全部满足：
+  - `repair_attempted=true`
+  - `supersedes` 非空（指向归档记录 artifact id，格式为 `pre-gate-check-{N}-attempt-1`）
+  - `repairs[]` 非空
+  - 任一缺失 → anomaly type=A20, severity=Medium（"multiple attempts without complete repair record"）
+
+- F: `repair_attempted` 与 `repairs[]` 一致性：
+  - `repair_attempted=true` 但 `repairs[]` 为空，或 `repair_attempted=false` 但 `repairs[]` 非空 → anomaly type=A20, severity=Medium（"repair_attempted / repairs[] inconsistency"）
+
+⚠️ D 项是 CHECK-20 的核心：最终 pre-gate 结论必须和实际流程行为一致。
+⚠️ CHECK-20 只验证执行记录、schema 一致性和语义矛盾；不在此处重复 PG1/PG2/PG3 的 25 项明细。PG 明细的唯一权威源是 `protocols/pre-gate-self-check.md`。
+
+---
+
 ## 未来扩展路径
 
 ```
-Phase-Driven v4.2（当前）: 16 项 CHECK（post-run 审计）
+Phase-Driven v4.6（当前）: 20 项 CHECK（post-run 审计 + pre-gate 前移检查闭环）
 Stage 3: + policy flagging（Enforceable Checks 自动评估）
 Stage 4: + during-run 实时监控
 ```

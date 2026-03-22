@@ -320,13 +320,11 @@ degraded_review: false
 
 ## D.3 — Gate 3
 
-### 前置验证
+### 前置验证（Pre-Gate 3 Self-Check）
 
-⚠️ Gate 3 展示前必须确认：
-1. events.jsonl 存在且有 D.1+D.2 事件
-2. decisions/gate-1.yaml 存在
-3. artifacts/ 中有 change-package
-4. issues/ 中所有 object_family:issue + severity:blocker 的条目 status=resolved
+⚠️ 原有 4 条前置验证已整合进 `../protocols/pre-gate-self-check.md` §2.3（PG3-1~11）。
+必须写入 `decisions/pre-gate-check-3.yaml`。`result=blocked` 时 Gate 3 不展示。
+`result=pass/pass_with_warnings` 时继续 Known Gaps 归集 → 展示 Gate 3。
 
 ### Known Gaps 自动归集
 
@@ -388,4 +386,5 @@ Gate 3 决策写入后，必须按以下严格顺序完成 Phase D 退出：
 - [ ] EVENTS_REQUIRED（D.1+D.2+D.3）全部满足
 - [ ] task.yaml live state 已更新（current_phase→phase_f）
 - [ ] task.yaml.completed_phases 包含 phase_d 条目（铁律 #8 硬条件）
+- [ ] `decisions/pre-gate-check-3.yaml` 写入
 ```

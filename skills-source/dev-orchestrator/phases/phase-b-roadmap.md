@@ -118,6 +118,11 @@ EVENTS_REQUIRED:
   - **功能性**（不依赖技术方案，Gate 1 确认）
   - **技术性**（标注 "pending Phase C 确认"，Phase C 后定稿）
 
+## Pre-Gate 1 Self-Check
+
+⚠️ Gate 1 展示前，必须执行 `../protocols/pre-gate-self-check.md` §2.1（PG1-1~6）。
+必须写入 `decisions/pre-gate-check-1.yaml`。`result=blocked` 时 Gate 1 不展示。
+
 ## Gate 1：Direction & Roadmap
 
 展示给用户：
@@ -217,6 +222,7 @@ ADJUST 时回到 Phase B（不回 Phase A），re-spawn PM 调整 scope。
 - [ ] 如 projects/{project_id}/PROJECT-BRIEF.md 不存在 → project_continuity_status 已记录
 - [ ] completed_stages 更新（PM skill 条目）
 - [ ] events.jsonl 有 skill_completed + gate_requested(direction) + gate_decision(direction) 事件
+- [ ] `decisions/pre-gate-check-1.yaml` 写入
 ```
 
 ## Hotfix 跳过 Phase B

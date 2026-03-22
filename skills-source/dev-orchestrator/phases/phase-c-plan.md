@@ -139,6 +139,11 @@ PART D：输出指令 + 标注格式
 5. **写 consumption receipt**：events.jsonl artifact_consumed（product-spec 被 adopted + adoption_impact）
 6. 确认全部写入后，才 spawn 下一个 skill
 
+## Pre-Gate 2 Self-Check
+
+⚠️ Gate 2 展示前，必须执行 `../protocols/pre-gate-self-check.md` §2.2（PG2-1~8）。
+必须写入 `decisions/pre-gate-check-2.yaml`。`result=blocked` 时 Gate 2 不展示。
+
 ## Gate 2：Scope & Architecture
 
 所有设计 sub-agent 完成后、进入 Phase D 前，必须展示 Gate 2 供用户确认 scope。
@@ -268,4 +273,5 @@ RESCOPE → Phase C 不退出，重新 dispatch 设计 skill（新 handoff-packe
 - [ ] completed_stages 更新
 - [ ] events.jsonl 有 gate_requested(scope) + gate_decision(scope) 事件
 - [ ] events.jsonl 有 artifact_consumed receipt（product-spec → design skill）
+- [ ] `decisions/pre-gate-check-2.yaml` 写入（或 gate-2-skip 场景下确认 PG2-8 通过）
 ```
