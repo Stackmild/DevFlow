@@ -1,0 +1,58 @@
+# Review Report Schema — Review Contract v2
+
+> reviewer 必须声明看了什么上下文、检查了什么 contract、每条高严重度 finding 的证据。
+
+---
+
+## 结构化输出（YAML）
+
+写入 `artifacts/{reviewer}-report.yaml`：
+
+```yaml
+reviewer: "{skill name}"
+review_type: "code" | "consistency" | "pre_release_test"
+context_pulled:                    # ⚠️ 必填且非空
+  - source: "artifact:{id}" | "file:{path}"
+    purpose: "{为什么看这个}"
+contracts_checked:                 # ⚠️ 必填且非空
+  - contract: "{contract 名称}"
+    source_artifact: "artifact:{id}"
+    result: "aligned" | "deviated" | "no_contract_available"
+    evidence: "{证据}"
+risks_by_severity:
+  critical: []
+  high: []
+  medium: []
+  low: []
+missing_tests:                     # ⚠️ 必填
+  - test: "{应测但未测}"
+    reason_missing: "{原因}"
+repo_context_needed_but_missing:
+  - context: "{需要但缺失}"
+    impact: "{影响}"
+evidence:                          # ⚠️ critical/high 必须附证据
+  - finding_id: "{P0-1}"
+    evidence_type: "code_ref" | "artifact_ref" | "behavior_observation"
+    evidence: "{证据}"
+verdict: "accept" | "request_changes" | "accept_with_known_gaps"
+known_gaps_if_accepted:
+  - gap: "{gap}"
+    risk: "{风险}"
+```
+
+## 人类可读版（Markdown）
+
+同时写入 `artifacts/{reviewer}-report.md`。
+
+## 硬条件（Review Effectiveness 主标准）
+
+- `context_pulled` 必填且非空
+- `contracts_checked` 必填且非空（无 contract 时标注 `no_contract_available` + 审查盲区说明）
+- `evidence` 覆盖所有 critical/high finding
+- `missing_tests` 必填
+- verdict 与 findings/risk 一致
+- verdict 为 `accept_with_known_gaps` 时 `known_gaps_if_accepted` 非空
+
+## 弱提示
+
+行数偏短可提示深度不足，但不单独作为判定依据。主标准是覆盖 + 证据 + 上下文。

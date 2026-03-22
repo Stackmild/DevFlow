@@ -1,0 +1,124 @@
+# Dev Orchestrator Task Template (V1.1 + Stage 2)
+# 复制此文件到 orchestrator-state/{task_id}/task.yaml
+
+task_id: ""                        # e.g. "task_20260320_md_to_json"
+run_id: ""                         # Stage 2: 每次 session 一个 run_id, e.g. "run_task_xxx_20260320_001"
+# ── 项目定位字段 ──
+# Field Precedence 规则：新 task 只写 canonical name；读取时先 canonical 后 legacy fallback
+project_id: ""                     # (canonical) V4.3 Continuity: 必填，= projects/ 下的目录名，如 "news-digest"
+                                   # Legacy alias: project_dir — 旧 task 可能用此名，读取时 fallback
+project_path: ""                   # V4.5 External Repo: 代码仓绝对路径；空 = 内部项目（代码在 {devflow_root}/projects/{project_id}/）
+                                   # 非空 = 外部项目（代码在此路径，continuity 壳在 {devflow_root}/projects/{project_id}/）
+                                   # Phase A.0 写入后 immutable（task 生命周期内不变）
+devflow_root: ""                   # V4.5 External Repo: DevFlow 中央目录绝对路径；空 = CWD 即 DevFlow root
+                                   # 3 级 fallback: task.yaml → devflow-config.yaml → CWD 检测（需 orchestrator-state/ 存在）→ 报错
+project_continuity_status: ""      # complete | incomplete | not_bound — V4.3 Continuity Layer
+task_type: ""                      # new_feature | feature_iteration | bugfix | review_existing | release_prep | design_only | feishu_handoff
+created: ""                        # YYYY-MM-DD
+status: pending                    # pending | in_progress | design_complete | implementation_complete | review_in_progress | completed | paused
+
+# ── V4.1: Live State（每次 phase entry/exit 必须更新） ──
+current_phase: ""                  # (canonical) phase_a | phase_b | phase_c | phase_d_1 | phase_d_2 | phase_d_3 | phase_f
+                                   # Legacy alias: current_stage — 旧 task 可能用此名
+current_focus: ""                  # 一句话：当前正在做什么
+last_action: ""                    # 上一步完成了什么
+next_action: ""                    # 下一步该做什么
+blockers: []                       # 阻塞项列表
+
+# V4.1: Phase 完成记录（从 completed_stages 聚合，但更结构化）
+completed_phases: []
+# - phase: phase_a
+#   completed_at: "2026-03-21T10:00:00Z"
+#   key_artifact: task-brief.md
+# - phase: phase_b
+#   completed_at: "2026-03-21T11:00:00Z"
+#   key_artifact: product-spec.md
+#   gate_decision: GO
+
+# V4.1: Issue 摘要（聚合自 issues/ 目录）
+open_issues_count: 0
+known_gaps_count: 0                # 派生值：= len(known_gaps[])，不要求人工维护
+unresolved_risks: []
+
+# 平台能力判断（Phase 0 动态探索结果）
+platform_capabilities: []
+# - capability: "AI 推理/分类/摘要"
+#   provider: "parent agent 内置"
+#   implication: "不需要外部 AI API 或独立 AI 模块"
+
+# 执行计划（三分模式：platform / code / handoff）
+# 飞书相关 scope 需额外填写 host_target + delivery_mode（见 Step 0.3b）
+execution_plan: []                 # (canonical) Legacy alias: execution_modes — 旧 task 可能用此名
+# - scope: "AI 处理"
+#   mode: platform
+#   reason: "parent agent 内置推理能力"
+# - scope: "转换脚本"
+#   mode: code
+#   reason: "需要持久化工具"
+# - scope: "飞书页面配置"
+#   mode: handoff
+#   host_target: feishu_miaoda
+#   delivery_mode: cloud_config
+#   reason: "页面/权限配置属飞书云端能力"
+# - scope: "飞书前端逻辑"
+#   mode: code
+#   host_target: feishu_miaoda
+#   delivery_mode: local_code_sync
+#   cloud_validation_required: true
+#   cloud_validation_items: ["数据源绑定"]
+#   reason: "组件逻辑需本地修改"
+
+current_stage: ""                  # DEPRECATED legacy alias → use current_phase. 旧 task 保留兼容，新 task 禁止写入
+gate_pending: null                 # null | direction | final
+
+# 修订计数
+revision_counts:
+  global: 0
+  per_skill: {}
+
+revision_policy:
+  green_limit_per_skill: 1
+  yellow_limit_per_skill: 2
+  red_limit_per_skill: 3
+  green_limit_global: 2
+  yellow_limit_global: 3
+  red_limit_global: 5
+
+# V1.1: completed_stages 是 phase exit condition 的核心
+# 每个 skill 完成后必须在这里注册，否则不能 spawn 下一个 skill
+completed_stages: []
+# - skill: "web-app-architect"
+#   completed_at: "2026-03-20T10:05:00Z"
+#   artifact: "architecture-spec.md"
+
+# V1.1: issue 必须有完整 lifecycle
+open_issues: []
+# - id: "issue-001"
+#   source_skill: "code-reviewer"
+#   target_skill: "full-stack-developer"
+#   severity: blocker            # blocker | high | medium | low
+#   status: open                 # open | resolved | wont_fix | deferred
+#   summary: ""
+#   created_at: ""
+#   resolved_at: null
+
+pending_handoffs: []
+# - id: "handoff-001"
+#   target: feishu_miaoda
+#   delivery_mode: cloud_config  # cloud_config（飞书 handoff 必填）
+#   artifact: "feishu-xxx.md"
+#   status: pending              # pending | sent | implemented_externally | verified | needs_revision | rejected
+
+known_gaps: []
+
+# Stage 2: 跨 session 恢复支持
+checkpoint:
+  last_run_id: ""                  # 上次 run 的 id
+  last_event_seq: 0                # events.jsonl 最后事件序号
+  resume_count: 0                  # 被 resume 的次数
+
+# V1.1: 硬上线限制标注（由 full-stack-developer 标注，Gate 3 前展示）
+hard_limits: []
+# - type: "DESTRUCTIVE"
+#   description: ""
+#   requires_human_confirmation: true

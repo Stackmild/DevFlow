@@ -1,0 +1,73 @@
+# Phase D Reviewer Selector — V1.0 Active Config
+# Status: ACTIVE — orchestrator 必须读取此文件执行 reviewer 选择
+#
+# ⚠️ 硬规则：Phase D selector 不得直接从自然语言 prompt / 对话内容 /
+#   orchestrator 临时解释中推断 trigger。只能消费下方映射表中的结构化字段。
+#
+# Trigger → 字段来源映射表：
+#   change_includes_ui        ← change-package.scope_flags.ui
+#   change_includes_interaction ← change-package.scope_flags.interaction
+#   change_includes_data_model ← change-package.scope_flags.data_model
+#   change_includes_schema    ← change-package.scope_flags.schema
+#   change_includes_api       ← change-package.scope_flags.api
+#   involves_external_sources ← change-package.involves_external_sources
+#   pure_bugfix               ← task.yaml.task_type == "bugfix"
+#   hotfix                    ← task.yaml.task_type == "hotfix"
+
+version: "1.0"
+status: active
+
+# 必选 reviewer（所有产出代码/配置变更的任务）
+always:
+  - skill: code-reviewer
+
+# 条件 reviewer（基于 change-package.scope_flags）
+conditional:
+  - id: rule_ui
+    skill: webapp-consistency-audit
+    trigger_type: scope_flag
+    trigger: change-package.scope_flags.ui == true OR change-package.scope_flags.interaction == true
+  - id: rule_data
+    skill: pre-release-test-reviewer
+    trigger_type: scope_flag
+    trigger: change-package.scope_flags.data_model == true OR change-package.scope_flags.schema == true OR change-package.scope_flags.api == true
+
+# 简化路径（基于 task.yaml.task_type）
+# ⚠️ 第一轮验证定位：shortcut_bugfix 是观察项，不是成败关键路径。
+#    第一轮试点主要验证对象是 conditional + authenticity_check + default。
+shortcuts:
+  - id: shortcut_bugfix
+    condition: task.yaml.task_type IN [bugfix, hotfix]
+    result: code-reviewer_only
+    source: task.yaml.task_type
+
+# Data/Source Authenticity 触发
+# ⚠️ evaluation: always — 不被 shortcuts 短路。
+#    即使 shortcut_bugfix 匹配，authenticity_check 仍然独立执行。
+authenticity_check:
+  id: rule_authenticity
+  evaluation: always
+  trigger_field: change-package.involves_external_sources
+  trigger_value: true
+  action: code-reviewer.enable_layer_5a
+  fallback_conditions:
+    - involves_external_url_or_feed
+    - involves_cold_start_seeded_content
+    - involves_content_aggregation
+    - source_authenticity_affects_semantics
+
+# 默认行为（无 conditional 命中时）
+default:
+  review_set: [code-reviewer]
+  note: "config 无命中时至少 dispatch code-reviewer"
+  routing_decision_fields:
+    config_rule_matched: "none"
+    fallback_reason: "no conditional rule triggered; default to code-reviewer only"
+    fallback_review_set: [code-reviewer]
+
+# 消费方式：
+# 1. orchestrator 在 D.2 dispatch 前读此文件
+# 2. 读 change-package.scope_flags + involves_external_sources + task.yaml.task_type
+# 3. 按 shortcuts → conditional → authenticity_check 匹配
+# 4. 命中 → routing-decision-D.yaml 记录 config_rule_matched: {rule_id}
+# 5. 无命中 → 走 default，记录 config_rule_matched: none + fallback_reason

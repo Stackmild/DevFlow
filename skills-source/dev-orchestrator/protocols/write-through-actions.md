@@ -1,0 +1,117 @@
+# Write-Through Action Templates
+
+> orchestrator 最高频的 4 类执行单元。每次执行时**按模板完成全部步骤**，不允许拆开或跳过。
+> 每类动作必须原子完成：事件写入 + artifact/decision 写入 + task.yaml 更新。
+
+⚠️ **全局注释**：Template 中的 task.yaml 字段清单是 **per-action** 的——只列出该动作必须更新的字段。Phase 转换字段（`current_phase` 推进、`completed_phases` 追加）在 **Phase Exit Checklist** 中执行，不在 Template 内部。
+
+⚠️ **Template C 时序说明**：铁律 #15（Pre-Action Check）适用于 Template C **完成之后**的用户交互轮次。Template C 内部的 gate 记录步骤（events.jsonl + decisions/ + task.yaml）不受铁律 #15 约束——它们是 gate 记录本身的原子步骤。
+
+---
+
+## Template A: `dispatch_skill`
+
+触发：每次 spawn sub-agent 前。
+
+```
+1. 写 handoffs/handoff-{stage}-{skill}-{seq}.yaml    ← handoff packet
+2. 写 events.jsonl: skill_dispatched                   ← 捎带写入
+3. 写 events.jsonl: artifact_consumed —— 以下场景必须写入（不是"如有"）：
+   - D.1: artifact_consumed(implementation-scope→fsd)（或 product-spec→fsd 如 C skip）
+   - D.2: artifact_consumed(change-package→reviewer)（每个 reviewer 一条）
+   - 其他 phase: artifact_consumed(上游 design artifact→matched skill)
+   不写 = Phase Exit Gate 失败（§5.5 required semantic events 缺失）
+4. 更新 task.yaml（以下字段全部 MUST 更新）：
+   - current_focus = "waiting for {skill}"
+   - last_action = "dispatched {skill} via handoff-{id}"
+   - next_action = "collect {skill} output → validate → persist"
+```
+
+---
+
+## Template B: `record_review`
+
+触发：每个 reviewer spawn 前 + 完成后。
+
+```
+0. ⚠️ Reviewer Handoff Packet 构造（MANDATORY — **blocking gate**：handoff 不存在 = reviewer 不 spawn）：
+   此规则**不分首轮/续行/轻量/完整**。RE-ENTER D 的 reviewer handoff 与首轮同级。
+   写 handoffs/handoff-D2-{reviewer}-{seq}.yaml
+   复用通用 handoff-packet.md schema，D.2 专用映射：
+   - input_artifacts → change-package + 上游 design artifact（每个有 generated_at）
+   - constraints → change_package_ref + expected_consumption（reviewer 应检查哪些 artifact）
+   - known_gaps → missing_artifacts（空列表也必须声明）
+   - expected_outputs → review-report.yaml (per contracts/review-report.md schema)
+
+1. 写 events.jsonl: skill_dispatched + artifact_consumed(change-package→reviewer)
+   ⚠️ MANDATORY: artifact_consumed(change-package→reviewer) 必须写入
+
+---（reviewer spawn 并返回产出后）---
+
+2. 验证 artifacts/{reviewer}-report.yaml 存在 + 6 项字段验证
+3. 写 artifacts/{reviewer}-report.yaml + .md            ← reviewer 产出
+4. 写 events.jsonl: artifact_created(review-report)      ← 捎带写入
+5. 从 report 提取 severity≥P1 findings → 写 issues/     ← 原子步骤（不延后）
+6. 写 events.jsonl: issue_raised（每个 P0/P1 finding）   ← 捎带写入
+7. 更新 task.yaml（以下字段全部 MUST 更新）：
+   - last_action = "recorded {reviewer} review: verdict={verdict}"
+   - open_issues_count = {issues/ 中 status=open 的 issue 计数}
+   - known_gaps_count: # 派生值 — 消费层从 known_gaps[] 动态计算，不再人工维护
+   - unresolved_risks = [{从 reviewer report 提取的未解决风险}]
+```
+
+---
+
+## Template C: `record_gate_decision`
+
+触发：Gate 1、Gate 2 或 Gate 3 用户做出选择后。
+
+```
+1. 写 events.jsonl: gate_requested                       ← 先落证据
+   ⚠️ gate_requested 必须在 gate_decision 之前写入，两者成对出现。
+   缺 gate_requested 的 gate_decision = §5.5 semantic events 缺失。
+2. 写 decisions/gate-{1|2|3}.yaml                        ← decision record
+3. 写 events.jsonl: gate_decision                        ← 捎带写入
+4. 更新 task.yaml（以下字段全部 MUST 更新）：
+   - last_action = "gate {1|2|3} decision: {decision}"
+   - next_action = "{下一步行动}"
+   - completed_phases += {当前 phase 的 completion record}（如 phase 因 gate 而完结）
+   - status = "{如 Gate 3 ACCEPT 且无续行 → 进 phase_f}"
+5. ⚠️ HARD GATE（铁律 #15）:
+   如 Gate 3 ACCEPT 后用户请求额外工作：
+   → HALT 所有文件操作
+   → 读取 ../contracts/continuation-protocol.md §Pre-Action Check
+   → 以固定模板输出检查结果
+   → 通过后走 Template D（record_continuation）
+   → 未通过 → 展示四选项等待用户选择
+   不可跳过 Pre-Action Check 直接操作文件。
+```
+
+---
+
+## Template D: `record_continuation`
+
+触发：Gate 3 后用户请求额外工作，Pre-Action Check 完成后。
+
+```
+1. 生成 scope delta 摘要（新请求 vs implementation-scope.md）
+2. 判断请求是否 multi-item（≥2 个独立请求）：
+   - 单项 → 以 §Pre-Action Check 单项模板输出 + 五选项，等待用户选择
+   - 多项 → 以 §Multi-Item 处理协议模板输出 + 逐条分类 + 分组确认
+3. 写 decisions/continuation-{seq}.yaml：
+   - 单项 → 现有 schema（type: re_enter_d / follow_up / light_patch / non_code_action / record_and_stop）
+   - 多项 → multi-item schema（type: multi_item, items: [...], non_code_actions: [...]）
+4. 写 events.jsonl: continuation_initiated               ← 捎带写入
+5. 更新 task.yaml（以下字段全部 MUST 更新）：
+   - current_phase = "{re_enter → phase_d_1 | follow_up → phase_f | light_patch → (unchanged) | non_code_action → (unchanged) | record_and_stop → phase_f}"
+   - current_focus = "continuation: {type} — {描述}"
+   - last_action = "continuation protocol: {type}"
+   - next_action = "{下一步行动}"
+6. 按路径执行：
+   RE-ENTER D → 回到 D.1（handoff-packet 构造 → fsd spawn）
+   FOLLOW-UP  → 当前任务进 Phase F, 新建 task_id
+   LIGHT-PATCH → 执行限定修改 + 写 patch-note → 进 Phase F
+   NON-CODE-ACTION → 执行外部操作 + 写 non_code_actions[].result
+   RECORD AND STOP → 写 issues/risk 或 override, 进 Phase F
+   MULTI-ITEM → 按 items[] 分组执行各 path + 写 item resolution table
+```

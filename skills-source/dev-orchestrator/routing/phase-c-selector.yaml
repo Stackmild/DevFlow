@@ -1,0 +1,59 @@
+# Phase C Capability Selector — V1.0
+# Status: P1 / NOT YET AUTHORITATIVE — narrative rules in phase-c-plan.md 仍为执行依据
+#
+# ⚠️ 本文件已包含完整规则，但尚未被 orchestrator 激活为运行时真相源。
+#    Phase C 配置化正式激活需等 P1 正式上线。
+
+version: "1.0"
+status: not_yet_authoritative
+
+# 根据 task_type 和 scope 确定需要 dispatch 的 design skills
+selectors:
+  - id: rule_backend
+    match:
+      task_type: new_feature
+      scope_includes: [data_model, api, backend]
+    dispatch: [web-app-architect, backend-data-api]
+  - id: rule_frontend
+    match:
+      task_type: new_feature
+      scope_includes: [ui, interaction, frontend]
+    dispatch: [webapp-interaction-designer, frontend-design]
+  - id: rule_full
+    match:
+      task_type: new_feature
+      scope_includes: [data_model, api, ui, interaction]
+    dispatch: [web-app-architect, backend-data-api, webapp-interaction-designer, frontend-design]
+
+# Skip 条件分两层：
+# Layer A（机器可判定）：全部满足才能成为 skip candidate
+# Layer B（需要 rationale）：candidate 确认后仍需写 decisions/phase-skip-C.yaml
+skip_conditions:
+  layer_a_machine_checkable:
+    - field: task.yaml.task_type
+      condition: IN [feature_iteration, bugfix, hotfix]
+    - field: task-brief.scope_item_count
+      condition: lte 3
+    - field: task-brief.involves_new_data_model
+      condition: false
+    - field: task-brief.involves_new_module
+      condition: false
+  layer_b_rationale:
+    - rationale_required: true
+    - note: "Layer A 全部满足 → candidate skip → 写 skip decision → 才算真正 skip"
+
+# ⚠️ 保底规则：config 无命中 ≠ 可 skip
+# Phase C config 无命中时至少 dispatch architect 做最小评估
+default:
+  dispatch: [web-app-architect]
+  note: "config 无命中 ≠ 可 skip。默认至少做最小 architect 评估。"
+  routing_decision_fields:
+    config_rule_matched: "none"
+    fallback_reason: "no selector matched; default to architect minimum evaluation"
+    fallback_dispatch: [web-app-architect]
+
+# ⚠️ P1 前置依赖 note：
+# task-brief.scope_item_count 和 task-brief.involves_new_data_model 字段
+# 当前不存在于 task-brief.md 中。
+# P1 正式激活时需同步修改 phases/phase-a-define.md，
+# 为 task-brief 补充最小结构化 schema。

@@ -1,0 +1,22 @@
+# === 个人项目与测试数据 ===
+projects/
+orchestrator-state/
+pilot-tasks/
+generated-images/
+
+# === 个人开发笔记 ===
+docs/
+
+# === 敏感/本地配置 ===
+.env
+devflow-config.yaml
+
+# === macOS ===
+.DS_Store
+
+# === 归档 ===
+归档.zip
+
+# === 通用 ===
+node_modules/
+*.log
