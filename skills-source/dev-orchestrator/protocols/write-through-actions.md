@@ -115,3 +115,45 @@
    RECORD AND STOP → 写 issues/risk 或 override, 进 Phase F
    MULTI-ITEM → 按 items[] 分组执行各 path + 写 item resolution table
 ```
+
+---
+
+## §Sub-agent Return Continuity Protocol
+
+Write-through templates 定义了单个写操作的原子性。本节定义跨操作的流程连续性。
+
+### 规则
+
+当任何 sub-agent 返回产出后，orchestrator 必须不间断地完成从"收集产出"到"下一个合法暂停点"的完整链路：
+
+1. 收集 sub-agent 产出
+2. 执行对应的 write-through template（Template A/B/C/D）
+3. 如果触发了 pre-gate self-check → 执行 self-check → 写 `decisions/pre-gate-check-{n}.yaml`
+4. 如果下一步是 Gate 展示 → 展示 Gate
+5. 如果下一步是 dispatch 另一个 sub-agent → 构造 handoff + dispatch
+
+步骤 1→5 之间**不允许插入"等待用户输入"**。
+
+### 合法暂停点（仅这两种）
+
+1. Gate 展示完成，等待用户选择（GO / PROCEED / ACCEPT / REVISE / PAUSE）
+2. 明确需要用户补充信息（如缺少环境变量值、部署凭证等）
+
+### 各 Phase 的具体链路
+
+| 链路 | 起点 | 终点（合法暂停点） |
+|------|------|-------------------|
+| Phase B | PM sub-agent 返回 | Gate 1 展示 |
+| Phase C | 最后一个 design skill 返回 | Gate 2 展示 |
+| Phase D.1→D.2 | FSD 返回 | D.2 reviewer dispatch 完成 |
+| Phase D.2→D.3 | reviewer 返回 | Gate 3 展示 |
+| Phase D.3→F | Gate 3 ACCEPT | Phase F 完成（task_completed 写入） |
+
+**Phase D（三步不可拆分闭环）**：
+- D.1 FSD 返回 → 写 change-package → routing-decision-D → handoff-D2 → dispatch reviewer(s)
+- D.2 reviewer 返回 → record_review → 提取 issues → review-completeness-summary → pre-gate-check-3 → Gate 3 展示
+- Gate 3 ACCEPT → record_gate → phase_completed(phase_d) → phase_entered(phase_f) → Phase F 执行 → task_completed
+
+### 违反后果
+
+如果 orchestrator 在非法暂停点停止，恢复后必须从停顿点继续完成整个链路，不得跳过中间步骤。

@@ -38,6 +38,13 @@ verdict: "accept" | "request_changes" | "accept_with_known_gaps"
 known_gaps_if_accepted:
   - gap: "{gap}"
     risk: "{风险}"
+build_evidence:                    # ⚠️ V4.5 新增：code-reviewer Layer 0 输出，其他 reviewer 如不执行 Layer 0 可省略
+  tests_run_coverage: "all_explicit" | "partial_not_run" | "no_tests"
+  delivery_verification:
+    typecheck: "pass" | "fail" | "not_run" | "n/a"
+    build: "pass" | "fail" | "not_run" | "n/a"
+  compile_risk_patterns_found: []  # 如有：["useRef_no_init", "missing_use_client", ...]
+  layer_0_verdict: "clean" | "concerns_found"
 ```
 
 ## 人类可读版（Markdown）

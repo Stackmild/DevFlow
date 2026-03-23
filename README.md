@@ -53,9 +53,9 @@ DevFlow 不是纯串行流程——每个 Gate 和审查节点都支持回流：
 
 ---
 
-## 区别于普通 Skill 工作流
+## DevFlow与普通工作流的差异
 
-一般的 AI skill 是独立调用、一次性执行。DevFlow 的核心差异在于两层持久化机制：
+DevFlow 的核心差异在于两层持久化机制：
 
 ### 项目级 Continuity Layer
 
@@ -75,7 +75,9 @@ DevFlow 不是纯串行流程——每个 Gate 和审查节点都支持回流：
 - **decisions/** — 所有 Gate 的人类决策记录（gate-1/2/3.yaml）
 - **issues/** — 审查中发现的问题
 
-这意味着：所有 sub-agent 的输入输出都有据可查，orchestrator 可以在断点恢复，审查员可以追溯任何决策的依据。
+此外，每个 Gate 展示前，orchestrator 会静默执行一批结构性完整性检查（Pre-Gate Self-Check，共 27 项分布在三个 Gate 前：6+8+13）。正常情况下用户完全感知不到，只有有问题时才会拦截——质量保障不是事后审计，而是**每个决策点前都有把关，不拉长正常流程**。Phase F 的 state-auditor 仍作为 post-run 完整审计（20 项 CHECK），形成"前置拦截 + 事后审计"的双保险。
+
+V5.0 新增 `devflow-gate` 薄控制层：一个外部 node 脚本，在 Phase 进入、Gate 3 后写操作、以及任务完成前做 **action authorization**（事前拦截），补上 pre-gate check 只能在 Gate 时运行的盲区。
 
 ---
 
@@ -110,20 +112,19 @@ Orchestrator 会检测到当前不在 DevFlow 目录内，主动询问你的 Dev
 
 ### 改进 DevFlow 本身
 
-如果你想修改 DevFlow 的协议、skill 或工作流定义，建议在正式改动前先运行 `@change-audit` 对方案做结构性改动准入审计。
+DevFlow 的设计是可适配、可自评、可迭代的。以下是三个层次的改进路径：
 
-凡涉及以下类型的改动，都建议先跑一次：
+**1. 适配你的开发环境**
 
-| 改动类型 | 示例 |
-|---------|------|
-| phase / gate 调整 | 修改 Phase D.2 审查路由 |
-| backflow / revision 规则 | 调整修订三档制阈值 |
-| handoff-packet / change-package 格式 | 新增字段 |
-| orchestrator 主流程 / 铁律 | 调整 INLINE_FALLBACK 豁免规则 |
-| continuity / resume / state 机制 | 修改 events.jsonl 写入顺序 |
-| cross-project / devflow-config 结构 | 新增多 repo 配置项 |
+Orchestrator 在每次任务启动时会读取 `reference/` 下的宿主平台认知文档，以此判断平台能力边界和任务分工。如果你使用的开发工具或协作平台与默认描述不同，直接修改这些文档即可——orchestrator 会自动适应你的实际环境。
 
-`@change-audit` 会自动调用 L1 设计审计 + L2 契约审计，输出 `go / go_with_conditions / revise / block` 裁决，帮你在实现前发现结构性缺口和 contract 破坏风险。该 skill 位于 `skills-source/test/change-audit/`。
+**2. 评估 DevFlow 的实际表现**
+
+完成一次开发任务后，可以让 DevFlow 参考 [`reference/devflow-self-evaluation-guide.md`](reference/devflow-self-evaluation-guide.md) 对自身在本次任务中的表现进行评估，包括阶段执行质量、artifact 完整性、Gate 决策合理性等。评估结果可以直接指导你改进 skill 定义或流程规则。
+
+**3. 改动上线前跑 change-audit**
+
+如果你想修改 DevFlow 的协议、skill 或工作流定义，建议在正式改动前运行 `@change-audit` 做结构性改动准入审计。它会自动调用 L1 设计审计 + L2 契约审计，输出 `go / go_with_conditions / revise / block` 裁决，帮你在实现前发现结构性缺口和 contract 破坏风险。
 
 > **注意**：通过 change-audit 仅代表"允许进入实现"，不代表改动已完整验证。
 
@@ -161,7 +162,9 @@ DevFlow/
 │       └── change-audit-l2-contract-review/ # L2 契约审计 sub-skill
 ├── reference/             # 系统参考文档
 └── scripts/
-    └── sync-skills.sh     # Skill 维护者同步工具
+    ├── sync-skills.sh     # Skill 维护者同步工具
+    ├── devflow-gate.mjs   # 薄控制层主入口（V5.0）
+    └── lib/               # Gate action 检查模块
 ```
 
 **本地目录（运行时自动创建，不入仓库）：**
@@ -175,6 +178,7 @@ DevFlow/
 │       ├── decisions/           # Gate 决策记录（gate-1/2/3.yaml）
 │       ├── issues/              # 审查发现的问题
 │       ├── handoffs/            # 外部交接文件
+│       ├── .permits/            # devflow-gate 通过记录（V5.0）
 │       ├── changelog.md         # 人类可读日志
 │       └── events.jsonl         # 结构化时序事件日志
 ├── projects/                    # 你的项目代码（内部项目）
@@ -232,6 +236,8 @@ DevFlow is not a purely sequential pipeline — every gate and review node suppo
 
 - **Project Continuity Layer**: PROJECT-BRIEF, ROADMAP, DEFERRED maintained across tasks
 - **Task State Store**: Full audit trail per task — events.jsonl, task.yaml, artifacts, decisions
+- **Pre-Gate Self-Check**: 27 checks distributed across 3 gates (6 + 8 + 13), run silently — invisible in the happy path, only fires when something is wrong
+- **devflow-gate v1** (V5.0): External node script providing action authorization before phase transitions, post-Gate-3 writes, and task completion — a half-hard gate that complements pre-gate auditing with upfront enforcement
 - Every sub-agent gets clear context; every decision is recorded and recoverable
 
 ## Quick Start

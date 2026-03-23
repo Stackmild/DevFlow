@@ -84,6 +84,62 @@ triggers:
 
 ## D. 五层审查框架
 
+### Layer 0：Build Evidence & Compile Safety（前置于 Layer 1-5）
+
+Layer 0 在 Layer 1-5 之前执行。目的：先确认 change-package 中声称的验证结果有证据支撑，再做代码审查。
+
+#### 0.1 验证证据检查（所有 change-package 适用）
+
+1. 读取 `change-package.tests_run`：每项是否有 `pass/fail/skip/not_run` 状态？`not_run` 是否有 reason？全部 `not_run` 且无 reason → 标注 P2 concern。
+
+2. 如果 `change-package.delivery_readiness` 存在，读取 `delivery_readiness.verification`：
+   - **task scope 包含 deploy / publish / public access**：
+     - `typecheck = not_run` → P1："部署任务缺少 typecheck 验证"
+     - `build = not_run` → P1："部署任务缺少 build 验证"
+     - `typecheck = fail` 或 `build = fail` → P0 blocker
+   - **task scope 不包含部署目标**：
+     - `typecheck = fail` → P1；其余 → P2 observation
+
+#### 0.2 Compile-Risk Pattern Check（TypeScript 项目适用）
+
+如果 `change-package.files_touched` 包含 `.ts` / `.tsx` 文件，检查以下已知高频编译错误 pattern：
+- `useRef<T>()` 未提供初始值（strict mode 要求 `useRef<T>(null)`）
+- `useState` 类型推断缺失导致隐式 any
+- Server / Client Component 边界违规（Next.js `'use client'` 指令缺失或错位）
+- import 路径别名是否与 tsconfig.json paths 一致
+- async Server Component 的返回类型是否 JSX 兼容
+
+发现疑似问题 → 标注 P1 finding（编译失败 = 部署失败）。
+
+#### 0.3 Layer 0 输出
+
+Layer 0 的结果写入 review-report.yaml 的 `build_evidence` 字段：
+
+```yaml
+build_evidence:
+  tests_run_coverage: "all_explicit" | "partial_not_run" | "no_tests"
+  delivery_verification:
+    typecheck: "pass" | "fail" | "not_run" | "n/a"
+    build: "pass" | "fail" | "not_run" | "n/a"
+  compile_risk_patterns_found: []   # 如有：["useRef_no_init", "missing_use_client", ...]
+  layer_0_verdict: "clean" | "concerns_found"
+```
+
+Layer 0 **不阻断 Layer 1-5**（发现问题也继续审查），但设定最终 verdict 的 floor：
+
+#### 0.4 Verdict Floor（Layer 0 对最终 verdict 的硬约束）
+
+| Layer 0 发现 | 最终 verdict 上限 |
+|-------------|-------------------|
+| `typecheck = fail` 或 `build = fail` | `request_changes`（不允许 accept 任何形式） |
+| deploy task 且 `typecheck = not_run` 或 `build = not_run` | `accept_with_known_gaps`（不允许 clean accept） |
+| `compile_risk_patterns_found` 非空 | `accept_with_known_gaps`（must 在 known_gaps 中注明） |
+| 以上均无 | 无限制，Layer 1-5 verdict 正常判定 |
+
+Verdict floor 高于 Layer 1-5 独立判定时取 floor。
+
+---
+
 ### Layer 1：改动范围与最小性
 
 **检查项：**

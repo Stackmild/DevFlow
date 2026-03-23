@@ -338,7 +338,7 @@ anomaly type=A17, severity=High（冻结但无冲突的假 snapshot 危害等于
 - A: 对应的 `decisions/pre-gate-check-{N}.yaml` 是否存在
   - 缺失 → anomaly type=A20, severity=Medium（"pre-gate check not performed before Gate {N}"）
 
-- B: 记录中 `items[]` 数量是否与协议定义匹配（Gate 1=6, Gate 2=8, Gate 3=11）
+- B: 记录中 `items[]` 数量是否与协议定义匹配（Gate 1=6, Gate 2=8, Gate 3=13）
   - 不匹配 → anomaly type=A20, severity=Medium（"pre-gate check item count mismatch"）
 
 - C: `check_version` 是否与当前协议版本一致
@@ -360,7 +360,7 @@ anomaly type=A17, severity=High（冻结但无冲突的假 snapshot 危害等于
   - `repair_attempted=true` 但 `repairs[]` 为空，或 `repair_attempted=false` 但 `repairs[]` 非空 → anomaly type=A20, severity=Medium（"repair_attempted / repairs[] inconsistency"）
 
 ⚠️ D 项是 CHECK-20 的核心：最终 pre-gate 结论必须和实际流程行为一致。
-⚠️ CHECK-20 只验证执行记录、schema 一致性和语义矛盾；不在此处重复 PG1/PG2/PG3 的 25 项明细。PG 明细的唯一权威源是 `protocols/pre-gate-self-check.md`。
+⚠️ CHECK-20 只验证执行记录、schema 一致性和语义矛盾；不在此处重复 PG1/PG2/PG3 的 27 项明细。PG 明细的唯一权威源是 `protocols/pre-gate-self-check.md`。
 
 ---
 

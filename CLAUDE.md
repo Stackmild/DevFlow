@@ -43,8 +43,16 @@ DevFlow/
 │   ├── cowork-as-host-platform.md
 │   ├── feishu-miaoda-as-host-platform.md
 │   └── devflow-self-evaluation-guide.md
-└── scripts/
-    └── sync-skills.sh           # Skill 维护者同步工具
+├── scripts/
+│   ├── sync-skills.sh           # Skill 维护者同步工具
+│   ├── devflow-gate.mjs         # 薄控制层主入口（V5.0）
+│   └── lib/
+│       ├── state-reader.mjs     # State store 读取工具
+│       └── checks/              # Gate action 检查模块
+│           ├── enter-phase.mjs
+│           ├── post-gate3.mjs
+│           └── complete-task.mjs
+└── reference/                   # 系统参考文档（同前）
 ```
 
 ## 本地目录（.gitignored，各自维护）
@@ -61,6 +69,7 @@ DevFlow/
 │       ├── decisions/           # 人类决策记录（gate-1/2/3.yaml）
 │       ├── handoffs/            # 外部交接文件
 │       ├── monitor/             # state-auditor 审计产出
+│       ├── .permits/            # devflow-gate 通过记录（V5.0，可选证据）
 │       ├── changelog.md         # 追加式日志（人类可读）
 │       └── events.jsonl         # 结构化事件日志（canonical 时序记录）
 ├── projects/                    # 你的项目代码（内部项目）
@@ -139,6 +148,48 @@ DevFlow 不是纯串行流程，每个 Gate 和审查节点都支持回流：
 > Gate 3 ACCEPT 是唯一合法进入 Phase F 的路径。
 > Gate 3 ACCEPT 后如需继续操作，必须走 continuation-protocol（5 条路径）。
 
+### Pre-Gate Self-Check
+
+每个 Gate 展示前，orchestrator 会**静默、自动**地执行一批结构性完整性检查（源自 state-auditor 的 CHECK 项前移）。这些检查**不会拉长流程**——正常情况下用户完全感知不到，只有检查失败时才会打断并告知原因。
+
+27 项检查分布在三个 Gate 前（6 + 8 + 13），而非每个 Gate 前都跑 27 项：
+
+> Gate 3 前 13 项包含 V4.5 新增的 PG3-12/13（deploy/publish task 的 build/typecheck 强制验证）。
+
+| Gate | 检查项数 | 检查示例 |
+|------|---------|---------|
+| Gate 1 前 | 6 项 | task.yaml 关键字段非空、product-spec 存在、routing-decision 存在 |
+| Gate 2 前 | 8 项 | Gate 1 决策存在、implementation-scope 存在且非 orchestrator 产出、设计 skill 全部完成 |
+| Gate 3 前 | 13 项 | change-package 存在、至少 1 个独立 reviewer 完成、无未解决 blocker、deploy task 的 build/typecheck 验证 |
+
+检查结果：
+- **PASS** — Gate 正常展示，用户无感知
+- **WARN** — Gate 正常展示，顶部加警告提示
+- **BLOCK** — Gate 被阻止，展示具体原因；允许一次自动修复尝试，仍失败则停止
+
+Phase F 的 state-auditor 仍作为 post-run 完整审计（20 项 CHECK），其中 CHECK-20 会验证 pre-gate self-check 是否真的执行了——形成"前置拦截 + 事后审计"的双保险。
+
+### devflow-gate 薄控制层（V5.0）
+
+Pre-Gate Self-Check 是 state auditing（事后审计）——如果 ORC 直接跳过 Gate 本身，这些检查根本不会运行。
+
+V5.0 引入了 `scripts/devflow-gate.mjs`，在 3 个最危险动作前做 **action authorization（事前拦截）**：
+
+| 动作 | 何时调用 | 防什么 |
+|------|---------|--------|
+| `enter_phase --phase {P}` | 写 `phase_entered` 事件之前 | Phase 跳过（如跳过 Phase C 直接进 D） |
+| `post_gate3_write --target-path {path}` | Gate 3 ACCEPT 后写非 Phase F 允许文件前 | Gate 3 后系统逃逸（ad-hoc 写入） |
+| `complete_task` | 写 `task.yaml status=completed` 之前 | 假 closeout（缺 events、有 open blocker） |
+
+这是**半硬闸门**：调用了 → 脚本给出 machine-readable ALLOW/BLOCK；绕过了 → permit 缺失，后续 auditor 可发现。它不是完整外部状态机，但把需要记住的协议从 50+ 条压到 1 个命令 + 3 个 subcommand。
+
+```bash
+# 示例：进入 Phase D 前调用
+node scripts/devflow-gate.mjs enter_phase --task-dir orchestrator-state/{task_id} --phase phase_d
+```
+
+详见 `scripts/devflow-gate.mjs` 和 SKILL.md §Universal Gate Rule。
+
 ## 两层持久化
 
 ### 项目级 Continuity Layer
@@ -199,6 +250,18 @@ Orchestrator 检测到当前不是 DevFlow 目录时，会主动询问你的 Dev
 
 ### 改进 DevFlow 本身
 
-如果你想修改 DevFlow 的协议、skill 或工作流定义，建议在改动前先运行 `@change-audit` 对方案做结构性改动准入审计。该 skill 会自动调用 L1 设计审计 + L2 契约审计，输出 `go / go_with_conditions / revise / block` 裁决，帮助在实现前发现结构性缺口和 contract 破坏风险。该 skill 位于 `skills-source/test/change-audit/`。
+DevFlow 的设计是可适配、可自评、可迭代的。以下是三个层次的改进路径：
+
+**1. 适配你的开发环境：修改宿主平台文档**
+
+Orchestrator 在每次任务启动时会读取 `reference/` 下的宿主平台认知文档（`cowork-as-host-platform.md`、`feishu-miaoda-as-host-platform.md`），以此判断平台能力边界和任务分工。如果你使用的开发工具、平台能力或外部协作平台与默认描述不同，可以直接修改这些文档，orchestrator 会自动适应你的实际环境。
+
+**2. 评估 DevFlow 的实际表现并改进**
+
+完成一次开发任务后，可以让 DevFlow 参考 `reference/devflow-self-evaluation-guide.md` 对自身在本次任务中的表现进行评估——包括阶段执行质量、artifact 完整性、Gate 决策合理性等维度。评估结果可以直接指导你对 skill 定义或流程规则的改进。
+
+**3. 改动上线前跑 change-audit**
+
+如果你想修改 DevFlow 的协议、skill 或工作流定义，建议在正式改动前运行 `@change-audit` 做结构性改动准入审计。该 skill 会自动调用 L1 设计审计 + L2 契约审计，输出 `go / go_with_conditions / revise / block` 裁决，帮助在实现前发现结构性缺口和 contract 破坏风险。该 skill 位于 `skills-source/test/change-audit/`。
 
 > **注意**：通过 change-audit 仅代表"允许进入实现"，不代表改动已完整验证。

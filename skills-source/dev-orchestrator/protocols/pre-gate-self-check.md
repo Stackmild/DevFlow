@@ -61,7 +61,7 @@ Gate 展示前 → 执行 pre-gate self-check（attempt_seq=1）
 
 ⚠️ PG2-8 通过时 Gate 2 本身也 skip——自检记录确认 skip 合法性。
 
-### §2.3 Gate 3 前（11 项）
+### §2.3 Gate 3 前（13 项）
 
 | ID | 检查内容 | 来源 CHECK | 级别 |
 |----|---------|-----------|------|
@@ -76,6 +76,8 @@ Gate 展示前 → 执行 pre-gate self-check（attempt_seq=1）
 | PG3-9 | `artifacts/review-completeness-summary.yaml` 存在 | CHECK-12 | WARN |
 | PG3-10 | 若 events.jsonl 含 `inline_fallback` / `review_inline_fallback` / `review_format_fallback`：确认 Gate 展示计划包含 degraded 标注 | CHECK-15 | WARN |
 | PG3-11 | events.jsonl 含 `skill_dispatched(fsd)` | CHECK-16 | BLOCK |
+| PG3-12 | **（条件）** 若 task scope 承诺 deploy / publish / public access：change-package 含 `delivery_readiness` 字段；`delivery_readiness.verification.typecheck ≠ "fail"`；`delivery_readiness.verification.build ≠ "fail"`；`delivery_readiness.blockers` 为空 | — | BLOCK |
+| PG3-13 | **（条件）** 若 task scope 承诺 deploy / publish / public access，且项目存在可运行 build/typecheck 路径（package.json 含 build/typecheck script 或 tsconfig.json 存在）：`delivery_readiness.verification.typecheck ≠ "not_run"`；`delivery_readiness.verification.build ≠ "not_run"`。不适用：纯静态文件部署或无 build step 项目（可标 `"n/a"`） | — | BLOCK |
 
 ---
 

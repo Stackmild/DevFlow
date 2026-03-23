@@ -45,6 +45,8 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
+⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_b`
+
 0. **⚠️ Project Discovery pre-step（V4.3 Continuity Layer）**：
    - 检查 `task.yaml.project_id` 是否存在
    - 如不存在（历史 task 或遗漏）→ 列出 `projects/` 目录 → 提示用户选择或创建 → 写回 `task.yaml.project_id`
@@ -117,6 +119,8 @@ EVENTS_REQUIRED:
 - 验收标准分两类：
   - **功能性**（不依赖技术方案，Gate 1 确认）
   - **技术性**（标注 "pending Phase C 确认"，Phase C 后定稿）
+
+⚠️ CONTINUITY: PM 返回后，到 Gate 1 展示必须连续完成（product-spec 写入 → events → task.yaml → pre-gate-check-1 → Gate 1 展示）。参见 `../protocols/write-through-actions.md §Sub-agent Return Continuity Protocol`。
 
 ## Pre-Gate 1 Self-Check
 

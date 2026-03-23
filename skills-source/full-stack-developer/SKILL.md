@@ -288,6 +288,24 @@ scope_flags:                              # MANDATORY — D.1 质量门槛必检
   data_model: true | false                # 改动涉及数据模型 / 数据库结构
   schema: true | false                    # 改动涉及 schema 变更
   api: true | false                       # 改动涉及 API endpoint / 接口
+# delivery_readiness（条件 MANDATORY）
+# 当 task scope 包含 deploy / publish / public access / release / 上线 / 部署 / 可对外访问 时必须填写
+# 缺失且 scope 包含上述关键词 → D.1 判定 INCOMPLETE
+delivery_readiness:
+  target_type: "vercel" | "netlify" | "self-hosted" | "npm" | "other"
+  repo_topology: "existing_repo" | "monorepo_subdir" | "standalone_repo_needed"
+  env_template:
+    example_file_present: true | false    # .env.example 是否已创建
+    local_secret_created: true | false    # .env（含真实值）是否已创建
+  manual_steps:
+    - step: "{用户需要执行的具体步骤，必须可直接复制粘贴}"
+      copy_paste_ready: true | false      # 不允许"打开 XXX 然后操作"类模糊描述
+  blockers: []                            # 阻塞部署的问题；有 blockers → PG3-12 BLOCK
+  verification:
+    install: "pass" | "fail" | "not_run"
+    typecheck: "pass" | "fail" | "not_run" | "n/a"  # TypeScript 项目必须跑，非 TS 项目填 "n/a"
+    build: "pass" | "fail" | "not_run" | "n/a"      # 有 build script 必须跑，无则填 "n/a"
+    local_smoke: "pass" | "fail" | "not_run"
 ```
 
 > ⚠️ `scope_flags` 5 个 boolean 字段**全部必须显式填写**（不允许缺失或 null）。若全部为 false，须在 diff_summary 中说明原因。缺失任何字段 → D.1 判定为 INCOMPLETE。

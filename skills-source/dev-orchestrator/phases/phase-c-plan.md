@@ -52,6 +52,8 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
+⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_c`
+
 1. Read `task.yaml`（确认 Phase B completed 或 Gate 1 通过）
 2. Read `artifacts/product-spec.md`（Phase B 产出）
 3. Read 本文档
@@ -138,6 +140,8 @@ PART D：输出指令 + 标注格式
 4. 追加 changelog + events.jsonl（artifact_created + skill_completed）
 5. **写 consumption receipt**：events.jsonl artifact_consumed（product-spec 被 adopted + adoption_impact）
 6. 确认全部写入后，才 spawn 下一个 skill
+
+⚠️ CONTINUITY: 最后一个 design skill 返回后，到 Gate 2 展示必须连续完成（artifact 写入 → events → task.yaml → pre-gate-check-2 → Gate 2 展示）。参见 `../protocols/write-through-actions.md §Sub-agent Return Continuity Protocol`。
 
 ## Pre-Gate 2 Self-Check
 

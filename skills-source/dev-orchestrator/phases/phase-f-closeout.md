@@ -51,6 +51,8 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
+⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_f`
+
 1. Read `task.yaml`（确认 Gate 3 ACCEPT 或 Gate 1 DEFER-TASK）
 2. Read `issues/` 目录中所有文件
 3. Read 本文档
@@ -74,6 +76,30 @@ EVENTS_REQUIRED:
 
 从审查 findings、known_gaps、reviewer suggestions 中提取改进候选：
 → 写入 `artifacts/next-version-candidates.md`
+
+## Step F.3.5：Closeout Integrity Check（BLOCKING — status=completed 写入前的硬闸门）
+
+在执行 Step F.4（写入 `status=completed`）之前，必须通过以下一致性检查。
+任一 BLOCK 级失败 → **不允许写入 completed** → 写 `closeout_blocked` 事件 → 停在 Phase F 等待补齐。
+
+| # | 检查 | 失败时 |
+|---|------|--------|
+⚠️ **遗留任务兼容性**：CI-1/CI-2 仅对**新创建的 task**（本协议实施后产生）强制执行。如果 resume 一个已完成（status=completed）的旧 task 进行后续操作，CI 检查基于旧 task 的实际 events.jsonl 内容判断，不应 BLOCK 正常已完成状态。
+
+| CI-1 | events.jsonl 包含 `phase_completed(phase_d)` | **BLOCK** — Phase D 未正式关闭 |
+| CI-2 | events.jsonl 包含 `phase_entered(phase_f)` | **BLOCK** — Phase F 未正式进入 |
+| CI-3 | task.yaml.completed_phases 包含 phase_d | **BLOCK** — Iron Law #8 违反 |
+| CI-4 | issues/ 中所有 P0/P1 issue status = resolved 或 known_gap | **BLOCK** — open P0/P1 不允许 completed |
+| CI-5a | task.yaml.open_issues_count 与 issues/ 实际 open 数不一致，**仅为派生计数偏差**（underlying issue state 本身正确） | **WARN** — 自动修正 count 后继续 |
+| CI-5b | issues/ 中某 issue 应为 resolved（events.jsonl 有 revision_applied 事件但 status ≠ resolved）但仍为 open，**underlying state 本身不一致** | **BLOCK** — issue state 不一致，需补齐 resolution |
+| CI-6 | 如 project_id 存在：ROADMAP.md 已更新（F.5 已执行） | **WARN** — 执行 F.5 后继续 |
+| CI-7 | 如 project_id 存在：DEFERRED.md 已回填（如有 known_gaps） | **WARN** — 执行 F.5 后继续 |
+
+**BLOCK 级失败处理**：写 events.jsonl `closeout_blocked` 事件（payload 包含失败检查项 ID）；不写 task_completed；不写 status=completed；输出："Phase F closeout 被阻断：{原因}，需补齐后才能关闭 task。"
+
+**WARN 级失败处理**：自动修正（count 对齐 / 执行 F.5），修正后重新检查，全部通过后继续。
+
+⚠️ GATE: `node scripts/devflow-gate.mjs complete_task --task-dir {state_dir}`
 
 ## Step F.4：更新最终状态
 

@@ -46,6 +46,8 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
+⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_d`
+
 1. Read `task.yaml`（确认 Phase C completed 或 C skip rationale 存在）
 2. Read `artifacts/implementation-scope.md`（如 Phase C 未 skip）或 `artifacts/product-spec.md`（如 C skip）
 3. Read 本文档
@@ -78,6 +80,8 @@ EVENTS_REQUIRED:
 4. 更新 completed_stages
 5. 检查 Upstream Issues → 如有 BLOCKER，回流
 6. events.jsonl（artifact_created + skill_completed + change_package_created）
+
+⚠️ CONTINUITY: FSD 返回后，到 D.2 reviewer dispatch 必须连续完成（change-package 写入 → routing-decision-D → handoff-D2 → dispatch reviewer）。参见 `../protocols/write-through-actions.md §Sub-agent Return Continuity Protocol`。
 
 ### D.1 Exit Condition
 
@@ -302,6 +306,8 @@ degraded_review: false
 
 > 此 summary 在 Gate 3 展示中直接引用，也可作为 dashboard 数据源。
 
+⚠️ CONTINUITY: reviewer 返回后，到 Gate 3 展示必须连续完成（review report 写入 → issues 提取 → review-completeness-summary → pre-gate-check-3 → Gate 3 展示）。参见 `../protocols/write-through-actions.md §Sub-agent Return Continuity Protocol`。
+
 ### D.2 Exit Condition（V4.1 重写）
 
 ```
@@ -322,7 +328,7 @@ degraded_review: false
 
 ### 前置验证（Pre-Gate 3 Self-Check）
 
-⚠️ 原有 4 条前置验证已整合进 `../protocols/pre-gate-self-check.md` §2.3（PG3-1~11）。
+⚠️ 原有 4 条前置验证已整合进 `../protocols/pre-gate-self-check.md` §2.3（PG3-1~13）。
 必须写入 `decisions/pre-gate-check-3.yaml`。`result=blocked` 时 Gate 3 不展示。
 `result=pass/pass_with_warnings` 时继续 Known Gaps 归集 → 展示 Gate 3。
 
@@ -352,12 +358,26 @@ degraded_review: false
 - [PAUSE] 保存
 ```
 
+### Gate 3 Delivery Handoff（条件触发）
+
+如果 change-package 包含 `delivery_readiness` 字段，Gate 3 展示必须额外包含：
+
+**部署交接清单**：基于 `delivery_readiness.manual_steps` 渲染，每个步骤 `copy_paste_ready=true`（可直接复制粘贴执行）。
+- 若 `repo_topology = standalone_repo_needed` 且代码在 DevFlow 子目录：必须包含 `git init` + `.gitignore` 确认 + 首次 commit 的完整命令
+- 环境变量列出具体值（如用户已在对话中提供）
+- DDL/migration SQL 以可直接在目标平台执行的格式提供
+
+**部署验证状态**：基于 `delivery_readiness.verification` 渲染，任何 `fail` 项标注 ⚠️。
+
 ### Gate 3 后必须执行
+
+⚠️ CONTINUITY: Gate 3 ACCEPT 后，到 Phase F 完成（task_completed 写入）必须连续完成。参见 `../protocols/write-through-actions.md §Sub-agent Return Continuity Protocol`。
 
 1. 写入 `decisions/gate-3.yaml`（7 个字段全部必填；兼容旧任务 `gate-3.yaml`）
 2. events.jsonl（gate_requested(final) + gate_decision(final)）
 3. 如 ACCEPT → 进入 Phase F
 4. ⚠️ **如用户在 ACCEPT 后请求额外工作** → 铁律 #15 生效 → 执行 `../contracts/continuation-protocol.md` §Pre-Action Check → 以固定模板输出结果 → 通过后走 write-through Template D。不可跳过 Pre-Action Check 直接操作任何文件。
+5. ⚠️ GATE: Gate 3 ACCEPT 后的所有 task state dir 写入（Phase F 允许文件除外），必须先调用 `node scripts/devflow-gate.mjs post_gate3_write --task-dir {state_dir} --target-path {path}`。
 
 ### Phase D Exit Sequence（V4.3 硬规则）
 

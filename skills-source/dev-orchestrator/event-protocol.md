@@ -83,6 +83,7 @@
 | 25 | `revision_applied` | audit |
 | 26 | `known_gaps_collected` | audit |
 | 27 | `unknown_action_detected` | audit |
+| 28 | `closeout_blocked` | audit |
 
 ### 禁止的别名
 

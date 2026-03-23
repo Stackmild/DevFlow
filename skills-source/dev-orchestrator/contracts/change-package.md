@@ -41,6 +41,24 @@ scope_flags:                              # Phase 2 新增：供 D.2 reviewer se
   data_model: true | false                # 改动涉及数据模型 / 数据库结构
   schema: true | false                    # 改动涉及 schema 变更
   api: true | false                       # 改动涉及 API endpoint / 接口
+# delivery_readiness — 条件字段（V4.5 新增）
+# 当 task scope 包含 deploy / publish / public access / release / 上线 / 部署 / 可对外访问 时必须填写
+# 缺失且 scope 包含上述关键词 → D.1 判定 INCOMPLETE；PG3-12/13 在 Gate 3 前检查
+delivery_readiness:
+  target_type: "vercel" | "netlify" | "self-hosted" | "npm" | "other"
+  repo_topology: "existing_repo" | "monorepo_subdir" | "standalone_repo_needed"
+  env_template:
+    example_file_present: true | false
+    local_secret_created: true | false
+  manual_steps:
+    - step: "{可直接复制粘贴执行的步骤}"
+      copy_paste_ready: true | false
+  blockers: []                            # 有 blockers → PG3-12 BLOCK
+  verification:
+    install: "pass" | "fail" | "not_run"
+    typecheck: "pass" | "fail" | "not_run" | "n/a"
+    build: "pass" | "fail" | "not_run" | "n/a"
+    local_smoke: "pass" | "fail" | "not_run"
 ```
 
 ### `scope_flags` 填写规则（MANDATORY — Phase 2 新增）
