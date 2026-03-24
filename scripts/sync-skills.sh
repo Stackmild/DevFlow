@@ -10,8 +10,9 @@
 #   bash scripts/sync-skills.sh --watch --test   # watch 模式下只同步测试 skill
 #   bash scripts/sync-skills.sh --watch --all    # watch 模式下同步全部
 #
-# 此脚本供 DevFlow skill 维护者使用（本地编辑 skills-source/ 后同步到 Cowork 全局目录）
-# 普通用户无需此脚本——直接在 Cowork 中安装 skill 即可。
+# DevFlow skill 安装与同步工具。
+# 用户安装：Cowork 在执行安装指令时会自动调用此脚本
+# 维护者同步：本地编辑 skills-source/ 后运行此脚本同步到全局目录
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_SKILLS="$SCRIPT_DIR/../skills-source"
