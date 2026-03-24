@@ -1159,10 +1159,36 @@ Gate 3 ACCEPT 后、任何推进工作的写操作前必须执行。不通过则
 
 ```
 1. 写 events.jsonl: gate_requested（必须在 gate_decision 之前）
-2. 写 decisions/gate-{1|2|3}.yaml
+2. 写 decisions/gate-{1|2|3}.yaml（含 user_feedback 半结构化字段，见下方格式）
 3. 写 events.jsonl: gate_decision
 4. 更新 task.yaml: last_action, next_action, completed_phases, status
 5. ⚠️ Gate 3 ACCEPT 后：HALT → 执行 continuation-protocol §Pre-Action Check
+```
+
+### gate-{N}.yaml 格式（含 user_feedback）
+
+```yaml
+gate: {1|2|3}
+gate_type: "direction | scope | final"
+decision: "GO | ADJUST | PROCEED | RESCOPE | ACCEPT | REVISE | PAUSE | DEFER-TASK"
+decided_at: "{ISO-8601}"
+decided_by: "human"
+user_notes: "{用户在 Gate 展示后给出的原始反馈（自由文本）}"
+
+# user_feedback：半结构化，供自迭代系统消费
+# summary: 关键反馈的一句话摘要（orchestrator 在记录时填写）
+# categories: 反馈类别标签（建议集，不强制）
+#   可选值: scope_change | quality_bar_change | architecture_pivot
+#           review_quality | timeline_pressure | compliance_constraint
+#           user_experience_feedback | scope_unchanged
+# intent_delta: 本次反馈是否改变了后续执行的方向/标准
+user_feedback:
+  summary: ""
+  categories: []
+  intent_delta:
+    adds_scope: false
+    changes_architecture: false
+    changes_acceptance_bar: false
 ```
 
 ## Template D: `record_continuation`

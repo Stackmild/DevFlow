@@ -1,0 +1,90 @@
+# evaluation-output-schema.yaml
+# DevFlow 自迭代系统 Step 4 — 机器可读评测输出 Schema
+#
+# 说明：本文件是 state-auditor 输出评测结果的机器 schema。
+# 人类评估准则请参见 reference/devflow-self-evaluation-guide.md（两者分开，各司其职）。
+# 每次评测写到: orchestrator-state/{task_id}/monitor/evaluation-{task_id}.yaml
+
+evaluation_id: "eval-{task_id}-{YYYY-MM-DD}"   # e.g. eval-news-digest-v3-2026-03-24
+evaluator: "state-auditor | manual"              # 谁做的评测
+devflow_version: "v5.0"                          # 评测时的协议版本
+task_id: "{task_id}"
+task_type: "new_feature | feature_iteration | bugfix | hotfix"  # 与 canonical_task_meta.task_type 对齐
+evaluated_at: "ISO-8601"                         # e.g. 2026-03-24T10:00:00+08:00
+schema_family_at_time: "v1.0-structured | v1.5-flat | v2.0-traced | unknown"  # schema family（兼容簇），不是精确版本号；unknown = 任务无 events.jsonl
+
+# ── 9 维度评分 ──────────────────────────────────────────────────────────────
+# grade: A / B / C / D / F
+# evidence: 一句话关键证据（引用具体文件/事件）
+
+scores:
+  OC:   # Orchestration Correctness
+    grade: "A | B | C | D | F"
+    evidence: ""
+  AP:   # Artifact Production
+    grade: "A | B | C | D | F"
+    evidence: ""
+  AC:   # Artifact Consumption
+    grade: "A | B | C | D | F"
+    evidence: ""
+  CI:   # Contract Integrity
+    grade: "A | B | C | D | F"
+    evidence: ""
+  RE:   # Review Effectiveness
+    grade: "A | B | C | D | F"
+    evidence: ""
+  IL:   # Issue Lifecycle Closure
+    grade: "A | B | C | D | F"
+    evidence: ""
+  SC:   # State Completeness
+    grade: "A | B | C | D | F"
+    evidence: ""
+  RA:   # Recovery / Audit Readiness
+    grade: "A | B | C | D | F"
+    evidence: ""
+  PO:   # Product Outcome
+    grade: "A | B | C | D | F"
+    evidence: ""
+
+# 加权分（A=4, B=3, C=2, D=1, F=0，按 self-evaluation-guide 权重）
+weighted_score: 0.0
+
+# ── 关键发现 ─────────────────────────────────────────────────────────────────
+# category 枚举（不强制）:
+#   contract_drift | trace_gap | review_ineffective | issue_lifecycle_broken
+#   artifact_orphan | gate_data_stale | actor_independence_violation
+#   continuation_bypass | schema_drift | rollback_missing
+
+key_findings:
+  - id: "F1"
+    category: "contract_drift"
+    severity: "P0 | P1 | P2"
+    description: ""
+
+# ── 回归断言结果（由 regression-check.mjs 填入）────────────────────────────
+# 对应 regression-check 输出中 per_assertion 的汇总
+
+regression_check_results:
+  schema_family: "v2.0-traced"
+  run_at: "ISO-8601 | null"
+
+  must_total: 0
+  must_applicable: 0
+  must_pass: 0
+  must_fail: 0
+  must_unknown: 0
+  must_not_applicable: 0
+
+  should_total: 0
+  should_applicable: 0
+  should_pass: 0
+  should_fail: 0
+  should_unknown: 0
+  should_not_applicable: 0
+
+  # 具体 FAIL 的断言列表（便于人工跟进）
+  failed_assertions: []
+  # e.g.:
+  # - assertion_id: "phase-sequence-01"
+  #   level: "MUST"
+  #   reason: "no gate_decision(gate-1) before phase_entered(D)"
