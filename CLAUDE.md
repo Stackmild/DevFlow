@@ -199,8 +199,10 @@ node scripts/devflow-gate.mjs enter_phase --task-dir orchestrator-state/{task_id
 - **PROJECT-BRIEF** — 项目定位与核心目标
 - **ROADMAP.md** — 里程碑与待办，任务完成时自动回填
 - **DEFERRED.md** — 被推迟的需求，附来源和推迟原因
+- **VISUAL-SYSTEM.md** — 项目视觉系统（Design Token、颜色、字体、间距规则），首次涉及 UI 的任务由 frontend-design 建立，后续任务合并更新
+- **COMPONENTS.md** — 项目组件清单与 API（可复用组件、状态、Props 规范），由 component-library-maintainer 维护
 
-Phase B 自动读取 ROADMAP 并将当前任务绑定到里程碑；Phase F 完成时回填交付状态和新增待办。
+Phase B 自动读取 ROADMAP 并将当前任务绑定到里程碑；Phase F 完成时回填交付状态、新增待办，并合并本次任务产出的视觉规范到 VISUAL-SYSTEM.md / COMPONENTS.md。`reference/design-standards-template.md` 提供 DevFlow 级别的设计规范模板，作为各项目 VISUAL-SYSTEM.md 的起点。
 
 ### 任务级 State Store
 
