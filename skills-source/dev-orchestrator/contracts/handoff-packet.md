@@ -40,7 +40,18 @@ known_gaps:
 exit_checks:
   - check: "{完成条件}"
     verification: "{怎么验证}"
+# --- 可选字段 ---
+project_design_context:           # 可选；相关文件不存在时省略此字段
+  design_standards_ref: "{devflow_root}/reference/design-standards-template.md"
+  visual_system_ref: "{devflow_root}/projects/{project_id}/VISUAL-SYSTEM.md"   # 如存在
+  components_ref: "{devflow_root}/projects/{project_id}/COMPONENTS.md"          # 如存在
 ```
+
+## project_design_context 使用规则
+
+- **消费方**：frontend-design（Phase C）、component-library-maintainer（Phase C 条件）、webapp-consistency-audit（Phase D.2 条件）
+- **文件不存在时**：省略对应子字段（不填 null，直接不写）；sub-agent 按"无设计规范约束"执行
+- **orchestrator 在构造 handoff 前**：检查上述文件是否存在，将存在的文件路径填入，并读取内容作为 sub-agent 的上下文输入
 
 ## 规则
 

@@ -84,6 +84,14 @@ IF task_type = bugfix:
   SKIP Phase C → 写 skip rationale 到 decisions/
   Phase D 的 handoff-packet 中标注 scope-light-mode: true
   scope contract 由 Phase B 的 product-spec.md 代替
+
+# 条件 dispatch（Layer C skills）
+IF frontend-design 被 dispatch（含上方任何触发 frontend-design 的路径）：
+  → 检查 {devflow_root}/projects/{project_id}/COMPONENTS.md 是否存在
+  → 检查 routing-decision-C 的 scope_tags 是否含 "ui" 或 "component"
+  → 如两者均为真 → 同时 dispatch component-library-maintainer
+      objective: "评审受本次 UI 改动影响的组件条目，产出更新版 COMPONENTS.md 文本"
+      input_artifacts: 现有 COMPONENTS.md + 本次 frontend-design handoff 中的 design spec
 ```
 
 ### Routing Decision 记录
@@ -129,8 +137,29 @@ PART D：输出指令 + 标注格式
 | architect | task-brief + product-spec |
 | backend | task-brief + product-spec + architecture-spec |
 | interaction | task-brief + product-spec + architecture-spec + backend-contract |
-| frontend | task-brief + product-spec + architecture-spec + interaction-spec |
+| frontend | task-brief + product-spec + architecture-spec + interaction-spec + **project_design_context**（见下） |
 | planner | task-brief + product-spec + 所有已产出的设计 artifact |
+| component-library-maintainer | 现有 COMPONENTS.md + frontend-design-spec.md（条件触发） |
+
+### frontend-design 的 project_design_context（设计规范上下文）
+
+在构造 frontend-design 的 handoff-packet 之前，orchestrator 必须：
+
+1. **必读**：`{devflow_root}/reference/design-standards-template.md`
+2. **按需读**：`{devflow_root}/projects/{project_id}/VISUAL-SYSTEM.md`（如存在）
+
+并在 handoff-packet 中填写 `project_design_context` 字段（详见 `contracts/handoff-packet.md`）。
+
+**两条 objective 路径**（根据 VISUAL-SYSTEM.md 是否存在）：
+- **首次任务**（VISUAL-SYSTEM.md 不存在）：
+  `objective` 中包含"以 design-standards-template.md 为基础约束，产出该项目的完整 v1.0 视觉规范"
+- **后续任务**（VISUAL-SYSTEM.md 已存在）：
+  `objective` 中包含"在现有视觉规范基础上迭代，产出本次变更的增量规范（标注新增/修改项），勿重新发明已确立的 token/组件"
+
+在 `routing-decision-C.yaml` 中增加字段：
+```yaml
+design_context_available: true | false   # VISUAL-SYSTEM.md 是否存在
+```
 
 ### Phase Exit Condition（每个 skill 完成后）
 

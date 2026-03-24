@@ -125,6 +125,42 @@ EVENTS_REQUIRED:
    - `source_ref` 使用 Reference Convention 格式（`gap:{id}` / `issue:{id}` 等）
    - 追加更新日志条目
 
+3. **更新 VISUAL-SYSTEM.md**（如 Phase C 有 frontend-design 产出）：
+
+   ```
+   IF VISUAL-SYSTEM.md 不存在（首次任务）：
+     → orchestrator 将 artifacts/frontend-design-spec.md 的视觉规范部分
+       直接写入 {devflow_root}/projects/{project_id}/VISUAL-SYSTEM.md（v1.0）
+     → 文件头部标注：source_task_id + created_at
+
+   IF VISUAL-SYSTEM.md 已存在（后续任务）：
+     → spawn component-library-maintainer（或 frontend-design，按 scope 决定）
+     → handoff 包含：现有 VISUAL-SYSTEM.md 路径 + artifacts/frontend-design-spec.md 路径
+     → objective: "将本次增量规范合并到现有 VISUAL-SYSTEM.md，产出合并后的完整文档"
+     → expected_output: 合并后的 VISUAL-SYSTEM.md 全文
+     → orchestrator 落盘，文件头部追加：updated_by_task + updated_at
+   ```
+
+   **失败处理**：sub-agent 未返回结构化产出 → 写入 known_gap（type: design_system_update_failed），不 block task completion。
+
+4. **更新 COMPONENTS.md**（如本次有组件新增/修改，且 component-library-maintainer 在 Phase C 未被触发）：
+
+   ```
+   IF COMPONENTS.md 不存在：
+     → orchestrator 从 artifacts/frontend-design-spec.md 中提取组件列表
+     → 写入 {devflow_root}/projects/{project_id}/COMPONENTS.md 初版
+     → 标注 source_task_id + created_at
+
+   IF COMPONENTS.md 已存在（且 Phase C 未触发 component-library-maintainer）：
+     → spawn component-library-maintainer
+     → handoff 包含：现有 COMPONENTS.md 路径 + artifacts/frontend-design-spec.md 路径
+     → objective: "将本次新增/修改的组件合并到现有 COMPONENTS.md（新增组件标注 experimental）"
+     → expected_output: 更新后的 COMPONENTS.md 全文
+     → orchestrator 落盘
+   ```
+
+   **失败处理**：同 VISUAL-SYSTEM.md 失败处理。
+
 如 `project_id` 不存在或 continuity 文件不存在 → 跳过（不阻塞 Phase F 完成）。
 
 ## Phase F Exit Checklist
@@ -137,4 +173,6 @@ EVENTS_REQUIRED:
 - [ ] next-version-candidates.md 写入 artifacts/（如有）
 - [ ] events.jsonl 有 task_completed 事件
 - [ ] （V4.3）如 project_id 存在：ROADMAP.md 已更新 + DEFERRED.md 已回填
+- [ ] （V4.6）如 Phase C 有 frontend-design 产出：VISUAL-SYSTEM.md 已更新或写入 known_gap
+- [ ] （V4.6）如有组件变更：COMPONENTS.md 已更新或写入 known_gap
 ```

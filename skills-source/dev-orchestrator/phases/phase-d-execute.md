@@ -186,7 +186,7 @@ IF 任务满足以下任一条件 → code-reviewer 必须启用 Data/Source Aut
 
 触发判定由 orchestrator 在构造 reviewer handoff-packet 时执行（基于 task-brief + implementation-scope 中的数据源描述）。判定结果写入 reviewer handoff 的 constraints 字段：`data_source_authenticity_required: true/false`。
 
-### Reviewer Dispatch（V4.1 强化 + V4.2 补充）
+### Reviewer Dispatch（V4.1 强化 + V4.2 补充 + V4.6 design context）
 
 每个 reviewer：
 1. 构造 handoff-packet → `handoffs/handoff-D2-{reviewer}-{seq}.yaml`
@@ -194,6 +194,7 @@ IF 任务满足以下任一条件 → code-reviewer 必须启用 Data/Source Aut
    - `expected_output_format: review-report.yaml (per contracts/review-report.md schema)`
    - **V4.2 新增** `available_artifacts`: 列出所有可供 reviewer 参考的上游 artifact
    - **V4.2 新增** `expected_consumption`: 列出 reviewer 应当检查的 artifact（如 change-package + backend-contract + implementation-scope）
+   - **V4.6 新增**（仅 webapp-consistency-audit）：如 `routing-decision-C.yaml` 中 `design_context_available: true`，在 handoff 中填写 `project_design_context`（同 Phase C handoff-packet 字段格式），指导 reviewer 验证本次变更是否符合已确立的项目视觉/组件规范
 2. Read `./contracts/review-report.md`（Review Contract v2 格式）
 3. 同时写 events.jsonl（`skill_dispatched` + `artifact_consumed(change-package→reviewer)`）
 4. Reviewer 必须产出结构化报告：`artifacts/{reviewer}-report.yaml` + `.md`
@@ -321,6 +322,32 @@ degraded_review: false
 - [ ] 如有 fallback：review_format_fallback 或 review_inline_fallback 事件已写入
 - [ ] task.yaml live state 已更新（current_phase=phase_d_3）
 ```
+
+---
+
+## D.2.5 — release-and-change-manager（条件触发，V4.6 新增）
+
+**触发条件**：`artifacts/change-package-*.yaml` 中 `delivery_readiness` 字段存在（即该任务含 deploy/publish scope，由 full-stack-developer 在 change-package 中填写）。
+
+**触发时机**：D.2 全部 reviewer 完成且 review-completeness-summary 写入后、pre-gate self-check（PG3）前。
+
+**执行步骤**：
+
+1. 检查 change-package 的 `delivery_readiness` 字段是否存在
+2. 如存在 → 构造 handoff-packet → `handoffs/handoff-D3-release-mgr-{seq}.yaml`
+   - `input_artifacts`：change-package（必须）、review-completeness-summary（必须）
+   - `objective`：评估本次变更的发布影响范围、回滚策略、数据作业顺序，产出 release-packet
+3. 写 events.jsonl: `skill_dispatched(release-and-change-manager)` + `skill_completed(release-and-change-manager)`
+4. 产出：`artifacts/release-packet.yaml`（orchestrator 落盘）
+5. Gate 3 展示时，release-packet 中的 `manual_steps` 作为"部署交接清单"展示（已与 delivery_readiness 联动）
+
+**在 routing-decision-D 中新增字段**：
+```yaml
+release_manager_triggered: true | false
+release_manager_trigger_reason: "delivery_readiness 字段存在" | "N/A"
+```
+
+如不触发 → 跳过此步骤，直接进入 pre-gate self-check（PG3）。
 
 ---
 
