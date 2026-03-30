@@ -14,6 +14,9 @@ devflow-config.yaml
 # === macOS ===
 .DS_Store
 
+# === 本地运行时生成文件 ===
+reference/regression-known-issues.yaml
+
 # === 归档 ===
 归档.zip
 
