@@ -73,6 +73,19 @@ IF task_type = new_feature:
   IF scope includes "data model" or "API" → spawn architect + backend-data-api
   IF scope includes "UI" or "interaction" → spawn interaction-designer
   IF scope includes "visual design" → spawn frontend-design
+
+> ⚠️ **webapp-interaction-designer 隐性触发条件**（不依赖显式关键词）——满足任一即必须 spawn：
+>
+> | 场景 | 典型示例 |
+> |------|---------|
+> | 1. 点击/tap 触发状态切换 | 卡片点击进入阅读、item 展开收起、tab 切换 |
+> | 2. 主布局结构变化 | 单栏→三栏、侧边抽屉、阅读窗格、双栏 master-detail |
+> | 3. 在当前页就地加载内容 | iframe 阅读窗格、drawer、dialog、split-pane detail（含列表→详情阅读模型） |
+> | 4. 需要明确 click-zone / fallback / 选中态行为的任意场景 | 任何用户可能问"点哪里？结果在哪出现？失败怎么办？"的场景 |
+>
+> **排除**：纯样式调整、无新增交互行为的 UI 任务（如只改颜色/字体/间距）不触发隐性条件。
+>
+> **分工**：frontend-design 负责"长什么样"，interaction-designer 负责"怎么用"。隐性交互场景必须共同产出。
   ALWAYS → spawn planner sub-agent 产出 implementation-scope.md
 
 IF task_type = feature_iteration:
@@ -108,6 +121,8 @@ skipped_skills:
     reason: "{为什么不调用}"
 deviations: []       # 如果不 dispatch 某个匹配的 skill
 decided_at: "{timestamp}"
+design_context_available: true | false          # VISUAL-SYSTEM.md 是否存在（Phase C 执行时检测）
+component_library_maintainer_dispatched: true | false  # Phase C 是否触发了 component-library-maintainer（供 Phase F.5.4 读取）
 ```
 
 ## Sub-agent Dispatch
@@ -155,11 +170,6 @@ PART D：输出指令 + 标注格式
   `objective` 中包含"以 design-standards-template.md 为基础约束，产出该项目的完整 v1.0 视觉规范"
 - **后续任务**（VISUAL-SYSTEM.md 已存在）：
   `objective` 中包含"在现有视觉规范基础上迭代，产出本次变更的增量规范（标注新增/修改项），勿重新发明已确立的 token/组件"
-
-在 `routing-decision-C.yaml` 中增加字段：
-```yaml
-design_context_available: true | false   # VISUAL-SYSTEM.md 是否存在
-```
 
 ### Phase Exit Condition（每个 skill 完成后）
 

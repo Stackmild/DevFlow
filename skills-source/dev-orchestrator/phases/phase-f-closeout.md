@@ -151,7 +151,8 @@ EVENTS_REQUIRED:
      → 写入 {devflow_root}/projects/{project_id}/COMPONENTS.md 初版
      → 标注 source_task_id + created_at
 
-   IF COMPONENTS.md 已存在（且 Phase C 未触发 component-library-maintainer）：
+   IF COMPONENTS.md 已存在
+      AND decisions/routing-decision-C.yaml 中 component_library_maintainer_dispatched == false：
      → spawn component-library-maintainer
      → handoff 包含：现有 COMPONENTS.md 路径 + artifacts/frontend-design-spec.md 路径
      → objective: "将本次新增/修改的组件合并到现有 COMPONENTS.md（新增组件标注 experimental）"

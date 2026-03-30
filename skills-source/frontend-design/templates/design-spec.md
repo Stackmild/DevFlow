@@ -1,195 +1,412 @@
 # {产品/模块名} 前端设计说明
 
-> 由 `frontend-design` skill 生成。
-> 覆盖：场景与方向 / Visual System / 页面骨架 / 数据型页面规则 / 状态视觉 / 组件规则 / 实现交接。
+> 由 `frontend-design` skill V2.6 生成。
+> 4-Phase 结构：Diagnosis & Routing → North-Star Blueprint → System & Component → Critique & Gate。
 
 ---
 
-## 1. 场景与设计方向
+## Phase 1: Diagnosis & Routing
 
-**产品类型**：SaaS / Dashboard / Workspace / 内部工具 / AI App
+### 1. Product Context Summary
 
-**风格关键词**（3–5 个）：professional / calm / precise / restrained / product-grade
+**产品名称**：
+**产品类型**：
+**目标用户**：
+**核心任务**：
+**已有设计约束**：
 
-**视觉原则**（2–4 条）：
+---
+
+### 2. Design Axes Diagnosis（7 维）
+
+| 维度 | 判断 | 依据 |
+|------|------|------|
+| 任务性质 | | |
+| 用户心态 | | |
+| 产品姿态 | | |
+| 信息形态 | | |
+| 交互节奏 | | |
+| 表达强度 | | |
+| 宿主约束 | | |
+
+---
+
+### 3. Candidate Routes（2-3 条）
+
+#### 候选路线 A：{路线名称}
+**适配产品类型**：
+**适配用户心态**：
+**关键词**（≥5 个）：
+**版式倾向**：
+**色彩倾向**：
+**形状语言**：
+**动效倾向**：
+**信息密度**：
+**优势**：
+**风险**：
+
+#### 候选路线 B：{路线名称}
+{同上结构}
+
+#### 候选路线 C：{路线名称}（可选）
+{同上结构}
+
+---
+
+### 4. Selected Route + Why
+
+**选定路线**：
+**选定理由**：
+
+---
+
+### 5. Rejected Directions
+
+本产品**不应该**像：
+- {方向 1}——因为 {理由}
+- {方向 2}——因为 {理由}
+
+要刻意避免的模板感：
+- {具体描述}
+
+---
+
+### 6. Anti-Degeneration Guardrails
+
+**本路线最易退化为** → {退化方向}
+
+**退化信号**（来自 route-anti-patterns.md）：
+- {信号 1}
+- {信号 2}
+
+**主动规避方式**：
+- {措施 1}
+- {措施 2}
+
+```
+CHECKPOINT: Route selected: {路线名}. Rejected: {n} directions. Degeneration risks: {简述}.
+```
+
+---
+
+## Phase 2: North-Star Blueprint
+
+### 7. North-Star Screen Spec
+
+> 按 `templates/north-star-screen-template.md`（11 字段）填写。至少 1 个关键页面。
+
+#### {页面名称}
+
+**1. 页面目标**：
+
+**2. 首屏布局骨架**：
+
+**3. 第一视觉焦点**：
+
+**4. 信息层级**：
+1.
+2.
+3.
+
+**5. 关键交互区域**：
+
+**6. 组件风格差异点**（≥2）：
+-
+-
+
+**7. Route 具体体现（signature element）**：
+
+**8. 最易退化点**（≥2）：
+-
+-
+
+**9. 禁止项**（≥3）：
+-
+-
+-
+
+**10. 实现优先级**：
+- P0：
+- P1：
+
+**11. Real Content**：
+- **Real headline**：
+- **Real support text**：
+- **Real CTA**：
+- **真实内容模块**：
+  1.
+  2.
+  3.
+
+```
+CHECKPOINT: North-Star complete — {n} screens defined. Real content: {pass/fail}.
+```
+
+---
+
+## Phase 3: System & Component
+
+### 8. Experience Principles + Expression Layer
+
+**Experience Principles**（2-4 条）：
 1.
 2.
 
-**禁止项**：
-- 模板感
-- 组件库默认皮肤感
-- 廉价特效
+**Visual Language**：
+- 风格关键词（从 route 产出）：
+- 色彩策略：
+- 排版策略：
+- 层级策略：
+- 密度策略：
+- 形状/材质/质感：
 
-**密度策略**：
-
-| 页面类型 | 密度 | 说明 |
-|---------|------|------|
-| Dashboard | 适中 | KPI 卡清晰，不拥挤 |
-| 列表页 | 紧凑 | 高效展示数据 |
-| 详情页 | 标准 | 结构清晰，便于阅读 |
-| 表单页 | 标准 | 留够呼吸空间 |
-
----
-
-## 2. 信息密度与页面类型策略
-
-**首屏密度**：
-**列表密度**：
-**详情密度**：
-**表单密度**：
-**表格行高**：
-**筛选栏密度**：
+**Expression Layer**：
+- Visual metaphor：
+- Icon style：
+- Illustration tone：
+- Brand moments：
+- Motion intensity：
+- Content vs Data 语气差异：
 
 ---
 
-## 3. Visual System
+### 9. Design Tokens（回溯 route）
 
-### 3.1 Color Tokens
+#### Color Tokens
+| Token | 值 | 用途 | Route 回溯 |
+|-------|----|------|-----------|
+| color.primary.500 | | | |
+| color.semantic.success | | | |
+| color.semantic.warning | | | |
+| color.semantic.error | | | |
+| color.surface.default | | | |
+| color.surface.elevated | | | |
+| color.text.primary | | | |
+| color.text.secondary | | | |
 
-| Token | 值 | 用途 |
-|-------|----|------|
-| color.primary.500 | #... | 主操作、主链接 |
-| color.semantic.success | #... | 成功状态 |
-| color.semantic.warning | #... | 警告状态 |
-| color.semantic.error | #... | 错误状态 |
-| color.surface.default | #... | 页面背景 |
-| color.surface.elevated | #... | 卡片/面板背景 |
-| color.text.primary | #... | 主要文字 |
-| color.text.secondary | #... | 次要文字 |
-| color.text.placeholder | #... | 占位文字 |
-| color.border.default | #... | 默认边框 |
+#### Typography Scale
+| 级别 | 字号 | 字重 | 行高 | Route 回溯 |
+|------|------|------|------|-----------|
+| heading-xl | | | | |
+| heading-lg | | | | |
+| body-md | | | | |
+| label-md | | | | |
 
-### 3.2 Typography Scale
+#### Spacing Scale
+| Token | 值 | Route 回溯 |
+|-------|----|-----------|
+| space-2 | | |
+| space-4 | | |
+| space-6 | | |
+| space-8 | | |
 
-| 级别 | 字号 | 字重 | 行高 | 用途 |
-|------|------|------|------|------|
-| heading-xl | 24px | 700 | 32px | 页面主标题 |
-| heading-lg | 20px | 600 | 28px | 区块标题 |
-| heading-md | 16px | 600 | 24px | 次级标题 |
-| body-md | 14px | 400 | 22px | 正文 |
-| body-sm | 13px | 400 | 20px | 说明文字 |
-| label-md | 13px | 500 | 18px | 标签/Badge |
-| mono | 13px | 400 | 20px | 数字/代码 |
-
-### 3.3 Spacing Scale（基于 4px）
-
-| Token | 值 | 典型用途 |
-|-------|----|---------|
-| space-1 | 4px | 图标内边距 |
-| space-2 | 8px | 组件内间距 |
-| space-3 | 12px | 小区块间距 |
-| space-4 | 16px | 标准内间距 |
-| space-6 | 24px | 区块间距 |
-| space-8 | 32px | 大区块间距 |
-| space-12 | 48px | 节间距 |
-
-### 3.4 Radius / Border / Shadow
-
-| 类型 | 值 | 用途 |
-|------|----|----|
-| radius-sm | 4px | 输入框、小按钮 |
-| radius-md | 8px | 卡片、大按钮 |
-| radius-lg | 12px | 模态框、面板 |
-| shadow-sm | 0 1px 3px rgba(0,0,0,.1) | 卡片 |
-| shadow-md | 0 4px 12px rgba(0,0,0,.1) | 弹出层 |
-| shadow-lg | 0 8px 24px rgba(0,0,0,.15) | 模态框 |
+#### Radius / Border / Shadow
+| 类型 | 值 | Route 回溯 |
+|------|----|-----------|
+| radius-sm | | |
+| radius-md | | |
+| shadow-sm | | |
+| shadow-md | | |
 
 ---
 
-## 4. Screen Architecture（页面骨架）
+### 10. Screen Architecture
 
 **Page Shell**：
 - 顶部导航高度：
 - 侧边栏宽度（若有）：
 - 主内容最大宽度：
 - 主内容左右 padding：
+- **Route 对应关系**：{shell 如何体现选定 route}
 
 **First-view scan order**：
-
 **模块分组规则**：
 
 ---
 
-## 5. 数据型页面规则
+### 11. Page Type Rules（按需）
 
-### 5.1 Dashboard
-- KPI 卡数量上限：
-- 图表与表格相对优先级：
-- 颜色映射规则：
+#### 数据型（按需激活）
+- Dashboard：
+- Data Table：
+- Form：
+- Detail：
 
-### 5.2 Data Table
-- 行高：compact / standard（  px）
-- Header 样式：
-- 工具栏规则：
-- 空态/加载态/错态：
+#### 内容型（按需激活）
+- Article card：
+- Reading view：
+- Summary card：
 
-### 5.3 Form
-- Label 位置：顶部 / 左侧
-- 错误信息位置：字段下方
-- 一列 / 两列条件：
-
-### 5.4 Detail
-- 标题区结构：
-- 元数据摘要区：
-- 返回与面包屑规则：
+#### AI 型（按需激活）
+- Chat bubble：
+- Canvas：
+- Suggestion card：
 
 ---
 
-## 6. 状态与反馈视觉表达
+### 12. Theme / Mode Strategy（按需）
 
-| 状态 | 视觉表达 | 颜色/图标 |
-|------|---------|---------|
-| loading | skeleton / spinner | - |
-| empty（正常空态） | 插图 + 说明文字 | gray |
-| error | 错误图标 + 文字 + 重试 | semantic.error |
-| 无权限 | 锁图标 + 说明 | gray |
-| 待同步/未初始化 | 时钟图标 + 说明 | warning |
-| 未分类（fallback） | 灰色 badge | gray |
-| success | 绿色 toast / inline | semantic.success |
-| warning | 黄色 banner / badge | semantic.warning |
+**是否需要 mode architecture**：{是/否}
+**理由**：
+
+{如需要，列出具体 mode：Light/Dark / Brand / Role / Density / Host-sync / Accessibility}
 
 ---
 
-## 7. 组件级规则
+### 13. State / Feedback Expression
 
-| 组件 | Variant | Size | 状态 | 备注 |
-|------|---------|------|------|------|
-| Button | primary/secondary/ghost/danger | sm/md/lg | default/hover/active/disabled/loading | - |
-| Input | default/error | sm/md | default/focus/error/disabled | - |
-| Badge/Tag | ... | ... | ... | - |
+| 状态 | 视觉表达 | 颜色/图标 | Route 对齐说明 |
+|------|---------|---------|---------------|
+| loading | | | |
+| empty | | | |
+| error | | | |
+| disabled | | | |
+| hover | | | |
+| active | | | |
+| success | | | |
 
 ---
 
-## 8. Design-to-Code Handoff
+### 14. Component Rules（≥3 非默认定制点）
 
-### 8.1 给飞书妙搭
+| 组件 | Variant | Size | 状态 | 路线化定制点 |
+|------|---------|------|------|------------|
+| Button | | | | |
+| Card | | | | |
+| Table | | | | |
+| Form | | | | |
+| Navigation | | | | |
+
+**与 UI 库默认值不同的定制点**（≥3 个）：
+1. {组件} — 默认: {X} → 定制: {Y}（理由: route {Z}）
+2.
+3.
+
+---
+
+### 15. Handoff Notes
+
+#### 给飞书妙搭
 -
 
-### 8.2 给 Cowork / 前端工程
-- Token 进入 theme 的方式：
-- 哪些值禁止写死：
-- 哪些组件需封装：
+#### 给 Cowork / 前端工程
+- Token 进入 theme 方式：
+- 禁止写死的值：
+- 需封装的组件：
 
-### 8.3 给设计系统维护
+#### 给设计系统维护
 - 需新增 token：
 - 需新增 primitives：
 
-### 8.4 给测试/审查
+#### 给测试/审查
 - 最容易视觉漂移的页面：
-- 必须做 screenshot diff 的状态：
+- 必须 screenshot diff 的状态：
+
+```
+CHECKPOINT: System layer complete — {n} token categories, {n} custom component points.
+```
 
 ---
 
-## 9. 自检结果
+## Phase 4: Critique & Gate
 
-- [ ] 无明显模板感
-- [ ] 信息层级清楚
-- [ ] list / detail / dashboard 像同一产品
-- [ ] density 可解释
-- [ ] token 足够支撑页面
-- [ ] 空态/错态/fallback 视觉区分清楚
-- [ ] 不只做首屏，系统页面也覆盖
+### 16. Hard Checks Result
+
+| HC | 检查项 | 类型 | 结果 | 备注 |
+|----|--------|------|------|------|
+| HC-1 | Route Selection | Blocking | | |
+| HC-2 | North-Star | Blocking | | |
+| HC-3 | Placeholder | Blocking | | |
+| HC-4 | Token 最小集 | Quality | | |
+| HC-5 | Token Drift | Blocking | | |
+| HC-6 | 关键状态 | Blocking | | |
+| HC-7 | 组件定制点 | Quality | | |
+| HC-8 | 退化信号 | Blocking | | count: |
+
+**Blocking 结果**：
+**Quality 结果**：
 
 ---
 
-*此模板由 `frontend-design` skill 提供。*
+### 17. Anti-Degeneration Review
+
+**选定路线退化信号复检**：
+- {信号} — {触发/未触发}
+
+**跨路线通用信号匹配数量**：{n}/5
+
+**Rejected Directions 逐条验证**：
+- {方向 1} — {确已避免/仍存在}
+
+---
+
+### 18. Rubric Self-Review（8 维度 + evidence）
+
+| 维度 | 得分 | Evidence Basis |
+|------|------|---------------|
+| Product Fit | | |
+| Hierarchy Clarity | | |
+| Originality / Anti-Generic | | |
+| System Coherence | | |
+| Visual Craft | | |
+| Expression Control | | |
+| Route Fidelity | | |
+| Iteration Readiness | | |
+
+**Hard Fail 检查**：{通过 / 触发 HF-X}
+**Rubric 判定**：{PASS / FAIL-RETRY(Phase X) / FAIL-ESCALATE}
+
+---
+
+### 19. Final Verdict
+
+**Verdict**：{PASS / FAIL-RETRY / FAIL-ESCALATE}
+**Implementation Ready**：{true / false}
+**Retry Phase**：{Phase 1 / Phase 2 / Phase 3 / null}
+
+---
+
+### 20. frontend-design-package
+
+> ⚠️ 本节是质量元数据，不是视觉规范。Phase F.5 backfill 不得将本节内容写入 VISUAL-SYSTEM.md。
+
+```yaml
+frontend_design_package:
+  version: "v2.6"
+  mode: ""
+  route_selected: ""
+  rejected_routes_count: 0
+  north_star_count: 0
+  real_content_pass: false
+  degeneration_signal_count: 0
+
+  hard_checks:
+    HC-1: pass
+    HC-2: pass
+    HC-3: pass
+    HC-4: pass
+    HC-5: pass
+    HC-6: pass
+    HC-7: pass
+    HC-8: pass
+
+  hard_fail_ids: []
+
+  rubric_scores:
+    product_fit: 0
+    hierarchy_clarity: 0
+    originality_anti_generic: 0
+    system_coherence: 0
+    visual_craft: 0
+    expression_control: 0
+    route_fidelity: 0
+    iteration_readiness: 0
+
+  final_verdict: ""
+  implementation_ready: false
+  retry_phase: null
+```
+
+---
+
+*此模板由 `frontend-design` skill V2.6 提供。*

@@ -1,12 +1,12 @@
 ---
 name: frontend-design
 description: |
-  WebApp 前端体验设计师。先判断产品类型、用户心态、任务性质与品牌气质，提出并比较多个视觉路线；
-  选定路线后，建立可交付的视觉系统和页面规则。
+  WebApp 前端体验设计师（V2.6 — 4-Phase Workflow Gate）。
+  先判断产品类型、用户心态、任务性质与品牌气质，提出并比较多个视觉路线；
+  选定路线后，通过 North-Star Screen 压到页面层，再建立可交付的视觉系统和页面规则。
+  4-Phase 阻断式流程：Diagnosis → North-Star（硬 gate）→ System → Critique & Package。
   不再默认所有产品走同一种 B2B/中后台审美——设计系统是基础设施，不是审美终点。
   风格差异化由产品用途/场景/用户心态驱动，有理由、有约束、可落地。
-  适用于 SaaS、Dashboard、Workspace、AI App、内部工具、消费级轻工具、
-  飞书妙搭与 Cowork / 自研仓库混合场景。
 triggers:
   - 前端设计
   - UI 设计
@@ -25,18 +25,15 @@ triggers:
   - 产品气质
 ---
 
-# WebApp 前端设计 Skill（V2 — 风格路由版）
+# WebApp 前端设计 Skill（V2.6 — 4-Phase Workflow Gate）
 
 ## A. 定位
 
-**先判断产品应该长什么样，再建立系统让它稳定地长成那样。**
+**先判断产品应该长什么样，再压到页面上验证，最后建立系统让它稳定地长成那样。**
 
-本 Skill 的核心流程：
 ```
-Route Selection（风格路由）→ Systemization（tokens / shell / rules / handoff）
+Phase 1: Route Selection → Phase 2: North-Star（硬 gate）→ Phase 3: Systemization → Phase 4: Critique & Package
 ```
-
-它不是"统一化设计系统生成器"——它是一个会先诊断产品气质、再选择视觉路线、最后落地为可交付系统的前端设计角色。
 
 ### 核心原则
 
@@ -45,10 +42,13 @@ Route Selection（风格路由）→ Systemization（tokens / shell / rules / ha
 3. **设计系统是基础设施，不是审美终点**——token/shell/density 是执行层，不是决策层
 4. **受约束的表达**——表达层（metaphor/icon/motion/brand）必须存在，但受 route 约束
 5. **可交付性不打折**——无论风格多元，输出必须可被工程实现、可被审查验证
+6. **质量有标尺**——每次输出必须通过 hard checks + rubric 自评，低分触发回流，hard fail 阻断通过
+7. **负向约束优先**——anti-pattern guardrail 优先于正面风格追求；先防退化，再谈高级感
+8. **交付有 contract**——每次产出必须附带 `frontend-design-package`（YAML 摘要），供上下游机械检查
 
 ### 不再有默认风格预设
 
-旧版的 `professional / calm / precise / restrained / product-grade` 五词预设已删除。风格关键词从 Step 1.5 的 Route Selection 中产出，而非预设。
+旧版的 `professional / calm / precise / restrained / product-grade` 五词预设已删除。风格关键词从 Phase 1 的 Route Selection 中产出，而非预设。
 
 ---
 
@@ -83,16 +83,18 @@ Route Selection（风格路由）→ Systemization（tokens / shell / rules / ha
 
 | 模式 | 适用 | 输出重点 |
 |------|------|----------|
-| **完整模式** | 新产品/新模块从 0 设计 | 7 维诊断 → Route Selection → 系统 → 页面规则 → 表达层 → handoff |
-| **局部模式** | 单页/单模块/单组件 | 局部 route 确认 → token 子集 → 页面规则 |
-| **诊断模式** | 改版/模板感/同质化 | 问题诊断 → route 建议 → 修复优先级 |
-| **风格分流模式** | 多产品对比 | 为每个产品做独立 route → 对比差异 |
+| **完整模式** | 新产品/新模块从 0 设计 | 4-Phase 全流程 |
+| **局部模式** | 单页/单模块/单组件 | Phase 1-2 必须，Phase 3-4 聚焦局部 |
+| **诊断模式** | 改版/模板感/同质化 | Phase 1 诊断 → route 建议 → 修复优先级（Phase 2 可选） |
+| **风格分流模式** | 多产品对比 | 为每个产品做独立 Phase 1 → 对比差异 |
 
 ---
 
-## E. 工作流
+## E. 4-Phase 工作流
 
-### Step 1：产品气质诊断（7 维强制判断）
+### ⬇️ Phase 1 — Diagnosis & Routing
+
+#### 1.1 产品气质诊断（7 维强制判断）
 
 在动手设计前，必须对以下 7 个维度做出判断并写入输出：
 
@@ -108,256 +110,258 @@ Route Selection（风格路由）→ Systemization（tokens / shell / rules / ha
 
 如果用户没给够信息，做合理假设并标明。
 
----
+#### 1.2 Design Route Selection（⚠️ 强制，不可跳过）
 
-### Step 1.5：Design Route Selection（⚠️ 强制步骤，不可跳过）
+**必须输出 2-3 条候选视觉路线**，每条包含：适配产品类型、适配用户心态、关键词（≥5）、版式/色彩/形状/动效/密度倾向、优势、风险。
 
-**必须输出 2-3 条候选视觉路线**，每条包含：
-
-```
-### 候选路线 {N}：{路线名称}
-
-**适配产品类型**：...
-**适配用户心态**：...
-**关键词**（≥5 个）：...
-**版式倾向**：（宽松/紧凑/卡片/列式/杂志/网格/编辑式）
-**色彩倾向**：（中性主导/品牌色主导/语义色主导/高对比/低对比/暖调/冷调）
-**形状语言**：（直角/微圆/圆润/混合）
-**动效倾向**：（极简/克制/流畅/表现力/无）
-**信息密度**：（高/中/低/可调）
-**优势**：...
-**风险**：...
-```
+参考路线库：`reference/design-route-library.md`（7 条预置路线）
 
 **最后必须**：
 1. 选定 1 条主路线，给出理由
-2. 输出 Rejected Directions（见 Step 1.6）
-3. 不允许跳过比较直接进入 token
+2. 输出 Rejected Directions（本产品不应该像什么 + 理由）
+3. 查阅 `reference/route-anti-patterns.md` 中选定路线的退化信号
+4. 输出"本路线最易退化为 → {}" + 主动规避方式
 
-**禁止**：直接默认输出"专业、冷静、克制"。
+**禁止**：直接默认输出"专业、冷静、克制"。不允许跳过比较直接进入 token。
 
----
-
-### Step 1.6：Rejected Directions（⚠️ 必须项）
-
-每次输出设计方案时，必须包含：
+#### CHECKPOINT（Phase 1 → 2 阻断点）
 
 ```
-### Rejected Directions
-
-本产品**不应该**像：
-- {方向 1}——因为 {理由}
-- {方向 2}——因为 {理由}
-- ...
-
-要刻意避免的模板感：
-- {具体描述}
+CHECKPOINT: Route selected: {路线名}. Rejected: {n} directions. Degeneration risks: {简述}.
 ```
 
----
-
-### Step 2：Experience Principles + Visual Language
-
-基于选定的 route，定义：
-
-#### 2.1 Experience Principles（2-4 条）
-不是通用的"简洁高效"——必须与 route 和产品气质对齐。
-
-#### 2.2 Visual Language
-- 风格关键词（从 route 产出，不是预设）
-- 色彩策略
-- 排版策略
-- 层级策略
-- 密度策略
-- 形状/材质/质感方向
-
-#### 2.3 Expression Layer
-- **Visual metaphor**：产品的核心视觉隐喻是什么
-- **Icon style**：线性/面性/双色/品牌化
-- **Illustration tone**：empty/loading/error/success/onboarding 的语气
-- **Brand moments**：品牌表达应出现在哪里（首次进入/空态/完成/引导）
-- **Motion intensity**：静止为主 / 微动效 / 流畅过渡 / 表现力
-- **Content vs Data 语气差异**：内容型页面 vs 数据型页面的视觉语气如何区分
+**⚠️ 阻断规则**：Route 未选定 → 不得进入 Phase 2。
 
 ---
 
-### Step 3：Design Tokens
+### ⬇️ Phase 2 — North-Star Blueprint（⚠️ 硬 Gate）
 
-（保留原有 token 体系：Color / Typography / Spacing / Radius / Border / Shadow / Motion / Density，不重复列出。）
+> 完整模式 / 局部模式下的硬阻断交付物。未完成 Phase 2 不得进入 Phase 3。
+> 诊断模式下不强制，但建议对问题最严重的页面做 North-Star。
 
-关键变化：token 的选择必须回溯到 Step 1.5 的 route 选择。例如：
-- 如果 route 是 "Editorial Research Workspace"，typography 权重更高、line-height 更宽
-- 如果 route 是 "Operational Control Plane"，density 更高、spacing 更紧
+对每个产品/模块至少选 1 个关键页面，按 `templates/north-star-screen-template.md`（11 字段）产出 North-Star Screen Spec。
 
----
+**选择标准**：最能体现 route 视觉人格、最容易在实现中退化的页面。
 
-### Step 4：Screen Architecture
+**局部模式**：当前设计的页面即为 North-Star 对象。
 
-（保留原有 page shell / content width / section rhythm 等。）
+**关键要求**：
+- 11 字段全部填写，不可省略
+- Real Content 必须使用真实内容（禁止 placeholder → HF-2）
+- Route 在页面上的具体体现（signature element）必须明确
 
-新增要求：page shell 的设计必须体现选定的 route。例如：
-- "AI Copilot Surface" 的 shell 可能是 chat + canvas 双面板
-- "Executive Trust Console" 的 shell 可能是宽 dashboard + 紧凑侧栏
-- "Consumer Utility" 的 shell 可能是单列卡片流
+#### CHECKPOINT（Phase 2 → 3 阻断点）
 
----
+```
+CHECKPOINT: North-Star complete — {n} screens defined. Real content: {pass/fail}.
+```
 
-### Step 5：数据型/内容型页面规则
-
-（保留 Dashboard / Table / Form / Detail 规则，但改为按需激活而非默认全输出。）
-
-新增：
-- **内容型页面规则**（article card / reading view / summary card / timeline）
-- **AI 界面规则**（chat bubble / canvas / suggestion card / confidence indicator）
+**⚠️ 阻断规则**：North-Star 未完成 → 不得进入 Phase 3。不允许跳过 North-Star 直接给 token/component/layout/实现建议。
 
 ---
 
-### Step 6：Theme / Mode Strategy（按需）
+### ⬇️ Phase 3 — System & Component Translation
 
-如果产品需要，必须在此步定义：
+#### 3.1 Experience Principles + Visual Language
 
-| Mode 类型 | 说明 |
-|-----------|------|
-| **Light / Dark** | 基础主题 |
-| **Brand theme** | 品牌/子品牌主题 |
-| **Role-based** | analyst / exec / casual |
-| **Density mode** | compact / balanced / comfortable |
-| **Host-theme sync** | 嵌入宿主时继承主题 |
-| **Accessibility** | 高对比度、大字号 |
+基于选定 route 定义 2-4 条体验原则（不是通用的"简洁高效"）。
 
-不要求每次都输出所有 mode。但 Skill 必须判断"是否需要 mode architecture"并说明理由。
+Visual Language：风格关键词（从 route 产出）、色彩/排版/层级/密度/形状策略。
 
----
+Expression Layer：visual metaphor、icon style、illustration tone、brand moments、motion intensity、content vs data 语气差异。
 
-### Step 7：状态与反馈视觉
+#### 3.2 Design Tokens
 
-（保留原有状态列表：hover / active / focus / selected / disabled / loading / empty / error / success 等。）
+Token 体系（Color / Typography / Spacing / Radius / Border / Shadow / Motion / Density）从选定 route 推导。
 
-新增：状态视觉必须与 route 的表达强度对齐。例如：
-- 极低表达强度 → 状态用颜色 + 图标区分，无动画
-- 中等表达强度 → 状态有微动效 + 自定义 illustration
-- 品牌优先 → 空态/完成态用品牌风格 illustration
+**强制要求**：
+- 每个 token 分类旁注明 route 回溯理由（一句话）
+- Token 选择必须体现 route 的密度区间和字体权重偏好
+- 禁止输出与 route 无关的通用 token 集
 
----
+#### 3.3 Screen Architecture
 
-### Step 8：组件级规则
+Page shell 设计必须体现选定 route，输出中标注 route 对应关系。
 
-（保留原有组件列表。）
+#### 3.4 页面类型规则（按需激活）
 
----
+- **数据型**：Dashboard / Table / Form / Detail
+- **内容型**：article card / reading view / summary card / timeline
+- **AI 型**：chat bubble / canvas / suggestion card / confidence indicator
 
-### Step 9：Handoff
+#### 3.5 Theme / Mode Strategy（按需）
 
-（保留给飞书妙搭 / Cowork / 前端工程 / 设计系统 / 测试的交接说明。）
+判断是否需要 Light/Dark、Brand theme、Role-based、Density mode、Host-theme sync、Accessibility，说明理由。
 
----
+#### 3.6 状态与反馈视觉
 
-### Step 10：强制自检（含去同质化检查）
+hover / active / focus / selected / disabled / loading / empty / error / success。
+状态视觉必须与 route 的表达强度对齐。
 
-#### 原有检查（保留）
-- [ ] 是否仍有明显模板感
-- [ ] 是否层级清楚
-- [ ] 是否 list / detail / dashboard 像同一产品
-- [ ] 是否 density 可解释
-- [ ] 是否 token 足够支撑页面
-- [ ] 是否空态 / 错态 / fallback state 区分清楚
-- [ ] 是否像成熟产品，而不是 demo
+#### 3.7 组件级规则
 
-#### 去同质化检查（新增）
-- [ ] 这个方案是否可以轻易替换成任意一个通用 SaaS 后台？（如果是 → 重新审视 route）
-- [ ] 这个方案是否真的反映了产品的任务性质和用户心态？
-- [ ] 如果把产品名称拿掉，这个界面是否与其他产品过于相似？
-- [ ] 表达层是否过弱，以至于没有任何产品人格？
-- [ ] 表达层是否过强，以至于牺牲了可用性和交付性？
-- [ ] Route 选择是否真的影响了 token / layout / hierarchy / states，而不是只停留在文案层？
+关键组件（Button / Card / Table / Form / Navigation / Sidebar / Tabs / Chat）逐一说明 variant + size + state。
 
----
+**强制要求**：
+- ≥3 个组件必须有"与 UI 库默认值不同的路线化定制点"
+- 禁止所有组件使用 UI 库默认值而无任何路线化调整
+- 组件定制必须回溯到 route 和 expression layer
 
-## F. Route Library（预置风格路线库）
+#### 3.8 Handoff
 
-以下 7 条路线作为起点参考，不是强制清单。设计师可以组合、变形或提出新路线。
+给飞书妙搭 / Cowork / 前端工程 / 设计系统 / 测试的交接说明。
 
-### 1. Analytical Command Center
-**适合**：投后管理、金融监控、运营看板、数据分析平台
-**不适合**：消费级应用、创意工具、社交产品
-**视觉特征**：高密度、中性色主导、数据优先、直角或微圆、极简动效、信息层级靠留白和字重拉开
-**风险**：容易变成冰冷的控制台，缺少人情味
+#### CHECKPOINT（Phase 3 → 4 阻断点）
 
-### 2. Executive Trust Console
-**适合**：C-level 看板、决策支持、合规审查、汇报工具
-**不适合**：高频操作工具、开发者工具
-**视觉特征**：宽松留白、大标题数字、品牌色克制使用、高可信度、稳定感、serif 或 semi-serif 可选
-**风险**：容易变成"PPT 式仪表盘"，密度过低失去实用性
+```
+CHECKPOINT: System layer complete — {n} token categories, {n} custom component points.
+```
 
-### 3. Editorial Research Workspace
-**适合**：新闻聚合、AI 分析报告、研究工具、知识管理
-**不适合**：纯交易系统、高频操作
-**视觉特征**：阅读优先、杂志式排版、文字层级丰富、卡片+列式混合、内容密度 > 数据密度、typography 权重高
-**风险**：信息过载、层级失控、像博客而非工具
-
-### 4. AI-native Copilot Surface
-**适合**：AI 助手、Chat+Canvas、生成式工具、Copilot 界面
-**不适合**：纯数据看板、传统 CRUD 后台
-**视觉特征**：双面板（对话+画布）、柔和渐变、呼吸感、AI 生成内容有视觉区分、suggestion card、confidence indicator
-**风险**：过度 AI 未来感、忽略实用性
-
-### 5. Consumer-light Utility
-**适合**：菜谱、日常决策、个人工具、轻量记录
-**不适合**：企业后台、金融系统
-**视觉特征**：低密度、大圆角、暖色调或柔和色、生活化插图、友好排版、单列或双列卡片流
-**风险**：过于轻松导致不专业
-
-### 6. Narrative Insight Desk
-**适合**：投研报告、洞察平台、深度分析、可视化叙事
-**不适合**：操作密集型工具、配置管理
-**视觉特征**：叙事驱动、大面积图表、时间线、上下文关联、editorial + data 混合、较强表达层
-**风险**：内容编排复杂度高、维护成本大
-
-### 7. Operational Control Plane
-**适合**：DevOps 面板、系统监控、CI/CD、基础设施管理
-**不适合**：面向非技术用户的产品
-**视觉特征**：极高密度、等宽字体、暗色主题偏好、状态色主导、实时数据流、终端美学
-**风险**：对非技术用户极不友好
+**⚠️ 阻断规则**：系统层未产出 → 不得进入 Phase 4。
 
 ---
 
-## G. 输出模板
+### ⬇️ Phase 4 — Critique & Gate
+
+#### 4.1 Hard Checks
+
+执行 `checklists/frontend-design-hard-checks.md` 中的 8 项检查（6 Blocking + 2 Quality）。
+
+#### 4.2 Anti-Degeneration Review
+
+对照 `reference/route-anti-patterns.md`，复检：
+- 选定路线的 route-specific 退化信号是否被触发
+- 跨路线通用退化信号匹配数量
+- Rejected Directions 是否真的被避免（逐条检查）
+
+#### 4.3 Rubric Self-Review
+
+参照 `rubrics/design-quality-rubric.md` 的 8 个维度评分（1-5），每维度附 evidence basis。
+
+**通过标准**：所有维度 ≥ 3，且至少 4 个维度 ≥ 4。
+
+**Hard Fail（5 条，任一触发 → 不通过）**：HF-1 无 North-Star / HF-2 placeholder 内容 / HF-3 ≥3 退化信号 / HF-4 token drift / HF-5 关键状态缺失
+
+**Low-Score Escalation**（8/8 维度全覆盖，见 rubric 文件）：低分 → 回退到对应 Phase 修正。
+
+#### 4.4 Final Verdict
+
+- **PASS** = hard_fail_ids 为空 且 所有 rubric ≥3 且 ≥4 维度 ≥4
+- **FAIL-RETRY** = 可回退修复（有明确 retry_phase）
+- **FAIL-ESCALATE** = 结构性问题需人工介入
+
+#### 4.5 生成 frontend-design-package
+
+按 `templates/frontend-design-package.md` 的 YAML schema 生成 Package Summary，嵌入输出 Section 20。
+
+**⚠️ 规则**：如果在 Phase 4 中触发 escalation 回退（回到 Phase 1/2/3 修正），回退完成后必须重新走 Phase 4 并重新生成 Package。
+
+---
+
+## F. Route Library（快速索引）
+
+详细路线定义见 `reference/design-route-library.md`（7 条预置路线 + 适用/不适用/风险/North-Star hint）。
+
+| # | 路线 | 一句话 |
+|---|------|--------|
+| 1 | Analytical Command Center | 高密度数据优先 |
+| 2 | Executive Trust Console | 宽松高可信 |
+| 3 | Editorial Research Workspace | 阅读优先杂志式 |
+| 4 | AI-native Copilot Surface | 双面板柔和渐变 |
+| 5 | Consumer-light Utility | 低密度暖色友好 |
+| 6 | Narrative Insight Desk | 叙事驱动大面积图表 |
+| 7 | Operational Control Plane | 极高密度终端美学 |
+
+设计师可组合、变形或提出新路线。选定后必须查阅 `reference/route-anti-patterns.md`。
+
+---
+
+## G. 输出模板（4-Phase × 20 节）
 
 ```markdown
 # [产品/模块名] 前端设计说明
 
-## 1. Product Context Summary
-## 2. Design Axes Diagnosis（7 维）
-## 3. Candidate Routes（2-3 条）
-## 4. Selected Route + Why
-## 5. Rejected Directions
-## 6. Experience Principles
-## 7. Visual Language + Expression Layer
-## 8. Theme / Mode Strategy（如需要）
-## 9. Design Tokens
-## 10. Screen Architecture
-## 11. Page Type Rules（数据型 / 内容型 / AI 型，按需）
-## 12. State / Feedback / Empty / Error / Loading Expression
-## 13. Component & Pattern Rules
-## 14. Handoff Notes
-## 15. QA / Drift Checks（含去同质化）
+## Phase 1: Diagnosis & Routing
+### 1. Product Context Summary
+### 2. Design Axes Diagnosis（7 维）
+### 3. Candidate Routes（2-3 条）
+### 4. Selected Route + Why
+### 5. Rejected Directions
+### 6. Anti-Degeneration Guardrails（退化预判 + 规避）
+
+## Phase 2: North-Star Blueprint
+### 7. North-Star Screen Spec（≥1 关键页面，real content，11 字段）
+
+## Phase 3: System & Component
+### 8. Experience Principles + Expression Layer
+### 9. Design Tokens（回溯 route）
+### 10. Screen Architecture
+### 11. Page Type Rules（按需）
+### 12. Theme / Mode Strategy（按需）
+### 13. State / Feedback Expression
+### 14. Component Rules（≥3 非默认定制点）
+### 15. Handoff Notes
+### 15b. 跨组件视觉和谐验证（MANDATORY — 任何路线都必须通过）
+
+> ⚠️ **前置条件**：执行本节时，§9 Design Tokens 中的颜色草稿必须已完成——第 1 项检查（Nav/Sidebar × Content 对比度）依赖 token 颜色值，若 token 尚未产出则跳过对比度数值判断，仅做 tone family 方向性评估，并在输出中注明"待 token 确定后复验"。
+
+选定视觉路线后、产出 design tokens 前，必须完成以下三项验证。**任一项未通过，路线方案不完整，需补充后才能进入 Phase 4。**
+
+#### 1. Nav/Sidebar × Content 整体协调性
+
+- 深色 nav + 浅色 content：nav 内文字/icon 对比度是否 ≥ WCAG AA（4.5:1）？过渡边界是否需要 separator？相邻区域是否属于同一 tone family？
+- 反向同理
+- **必须明确写出**：该路线为什么不会产生"像两个产品拼在一起"的割裂感
+
+#### 2. 受限容器内的长标签策略（sidebar/nav < 200px）
+
+| 情况 | 必须声明的策略 |
+|------|--------------|
+| 纯中文标签 > 6 字 | truncate + ellipsis？tooltip？折行最大几行？ |
+| 混合中英文（如 `AI Coding学习库`） | 最大显示字数上限？折行 or ellipsis？ |
+| 允许折行时 | 最大行数上限（建议 ≤ 2） |
+
+#### 3. 整体 tone 一致性宣言
+
+必须在输出中写明（选择适用的模板）：
+
+> "该路线使用 [色调描述]，统一适用于 Nav/Sidebar/Content/Cards，不存在跨区域 tone 切换。"
+
+或若刻意双色调：
+
+> "Nav 使用 [色调 A]，Content 使用 [色调 B]，两者通过 [X 机制]（如统一品牌色 accent、separator 过渡、相同字体系统）形成协调整体，设计意图为 [原因]。"
+
+> ⚠️ 此宣言将被下游 webapp-consistency-audit 作为视觉和谐审查的基准——审查员会对照此声明验证实现是否一致。
+
+## Phase 4: Critique & Gate
+### 16. Hard Checks Result（6 Blocking + 2 Quality）
+### 17. Anti-Degeneration Review
+### 18. Rubric Self-Review（8 维度 + evidence）
+### 19. Final Verdict（PASS / FAIL-RETRY / FAIL-ESCALATE）
+### 20. frontend-design-package（YAML summary contract）
 ```
+
+> Section 20 是质量元数据，不是视觉规范。Phase F.5 backfill 不得将其写入 VISUAL-SYSTEM.md。
+
+详细模板见 `templates/design-spec.md`。
 
 ---
 
-## H. Changelog (V1 → V2)
+## H. Changelog
 
-| 变更 | V1 | V2 |
-|------|-----|-----|
-| 定位 | 视觉系统生成器 | 有风格路由能力的产品前端设计师 |
-| 默认风格 | `professional/calm/precise/restrained/product-grade` | **已删除固定预设**——从 route selection 产出 |
-| Route Selection | 无 | **Step 1.5 强制步骤**：2-3 候选 → 选定 + 理由 |
-| Rejected Directions | 无 | **Step 1.6 必须项** |
-| 气质诊断 | 品牌关键词 3-5 个 | **7 维强制判断**（任务/心态/姿态/信息/节奏/表达/宿主） |
-| Expression Layer | 无 | **Step 2.3**：metaphor / icon / illustration / motion / brand moments |
-| Route Library | 无 | **7 条预置路线** |
-| Theme/Mode | token 附属 | **Step 6 独立步骤** |
-| 输出模板 | 9 节 | **15 节**（含 route / rejected / expression / mode） |
-| QA | 8 项 | **14 项**（+6 项去同质化检查） |
-| 数据型页面 | 默认全输出 | **按需激活** + 新增内容型/AI型规则 |
-| 一句话原则 | "清晰克制稳定可实现" | "先判断产品应该长什么样，再建立系统让它稳定地长成那样" |
+| 变更 | V1 | V2 | V2.6 |
+|------|-----|-----|------|
+| 定位 | 视觉系统生成器 | 有风格路由能力的产品前端设计师 | **4-Phase Workflow Gate + Package Contract** |
+| 流程结构 | 线性步骤 | 10 步线性 | **4-Phase 阻断式**（Diagnosis → North-Star → System → Critique） |
+| 默认风格 | 五词预设 | 已删除，从 route 产出 | 同 V2 |
+| Route Selection | 无 | Step 1.5 强制 | Phase 1 强制 + 退化预判 |
+| North-Star | 无 | 无 | **Phase 2 硬 gate**：未完成不得进入系统层 |
+| Rubric | 无 | 无 | **8 维度**（+Route Fidelity, +Iteration Readiness）+ evidence basis |
+| Hard Fail | 无 | 无 | **5 条**：HF-1~5，任一触发阻断 |
+| Hard Checks | 无 | 无 | **8 项**（6 Blocking + 2 Quality）+ HC→HF 映射 |
+| Anti-Pattern | 无 | 无 | **4 段式纠偏**（Signal/Why/Fix/Poka-yoke）+ 负向约束优先 |
+| Real Content | 无 | 无 | **North-Star 禁止 placeholder** |
+| Package | 无 | 无 | **YAML summary contract**（Section 20） |
+| 输出模板 | 9 节 | 15 节 | **20 节**（4-Phase 结构） |
+| 原则 | 1 条 | 5 条 | **8 条**（+质量标尺 +负向优先 +交付 contract） |
+| 支撑文件 | 1 template | 1 template | **8 支撑文件**（templates/reference/rubrics/checklists/examples） |

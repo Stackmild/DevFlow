@@ -54,6 +54,27 @@ triggers:
 - design token 未被统一使用，存在大量硬编码样式值
 - 页面看起来像"一个产品里的多个系统拼起来的"
 
+**3c. 跨区域视觉和谐**
+
+检查 Nav/Sidebar/Content/Header 等主要布局区域：
+- 相邻区域背景色差异是否导致视觉割裂？
+- 正文文字对比度是否 ≥ WCAG AA（4.5:1）？
+- active/hover/selected 在不同背景区域是否风格一致？
+- 若刻意双色调设计，是否有 frontend-design spec 中的 tone 宣言作为合理性说明？
+
+发现明显割裂感（如深色 nav + 浅色 content 无过渡机制）→ 标注 **P1**，不是"风格偏好建议"。
+
+> **无 tone 宣言时的降级规则**：若 frontend-design spec 不含 §15b tone 宣言（旧版产出或 Phase C 未运行 frontend-design），3c 降级为推断性建议（**P2**），在 review report 中注明"缺少 tone 宣言基准（pre-§15b 任务），判定基于 reviewer 推断，建议人工确认"。
+
+**3d. 受限容器文字溢出**
+
+对所有宽度 < 200px 的 nav/sidebar/source-chips 容器，使用以下测试模式验证：
+- **纯中文 6 字以上标签**（如"数据源监控"）
+- **混合中英文 8 字符以上标签**（如"AI Coding学习库"）
+- **纯英文长词**（如"Anthropic Blog"）
+
+每类是否有 ellipsis/clamp/折行策略？非预期折行或溢出容器 → 标注 **P1**。
+
 ### 4) 用户视角 / Persona 差异问题
 - owner 账号正常，业务同事账号异常
 - 同一页面在不同用户下拿到的项目子集、状态对象、聚合结果差异巨大

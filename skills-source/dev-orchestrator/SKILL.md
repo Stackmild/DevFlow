@@ -125,7 +125,9 @@ orchestrator 可自行产出内容，但**必须同时满足**：
 
 **违反后果**：如果 orchestrator 在非法暂停点停止，恢复后必须从停顿点继续完成整个链路，不得跳过中间步骤。
 
-详细链路见下方 §Protocol: Write-Through Action Templates。
+详细链路见 `./protocols/write-through-actions.md §Sub-agent Return Continuity Protocol`。
+
+**task_completed 后进入 IDLE，必须走续行协议或新 task，不得 ad-hoc 执行。详见 `./protocols/write-through-actions.md §Post-Closeout Idle State`。**
 
 ---
 

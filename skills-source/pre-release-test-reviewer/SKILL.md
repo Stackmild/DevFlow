@@ -244,6 +244,28 @@ triggers:
 - 常用动作按钮有效
 - 页面之间数据一致
 
+### Gate 5b：Embeds / iframe / WebView / 站内内容阅读（条件触发）
+
+**触发条件**：scope 中包含 iframe / embed / WebView / 就地阅读窗格 / 第三方内容嵌入
+
+> ⚠️ iframe 不是默认可信方案。当 scope 依赖 iframe，必须主动怀疑其可行性。
+
+**P0 检查**
+
+| 检查项 | 操作 | 失败处理 |
+|--------|------|---------|
+| change-package 中是否有 iframe/embed 可行性验证记录 | 检查 `self_review` 或 `upstream_contract_checks` 字段中是否包含"iframe 跨域可行性"相关项 | 无记录 → P0 blocker |
+| 降级方案是否已实现 | 检查代码中是否有 iframe load error fallback | 无 fallback → P0 blocker |
+
+> iframe 可行性验证的执行责任在 full-stack-developer（Phase D.1，记录在 change-package 中）；reviewer 的职责是确认验证已完成。**当 PM/Gate 1 已提示过 iframe 风险时，必须将 change-package 中有无验证记录作为 P0 检查点。**
+
+**P1 检查**
+
+- 加载失败时是否有可见 fallback UI（不是空白）
+- 是否有"打开原文"后备外链按钮
+- sandbox 属性是否过宽
+- 站内阅读与外跳逻辑是否冲突
+
 ---
 
 ## E. 必测专项清单（针对你的场景）
