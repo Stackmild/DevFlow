@@ -104,7 +104,7 @@ DevFlow 的每个 Gate 和审查节点都支持回流：
 
 此外，每个 Gate 展示前，orchestrator 会静默执行一批结构性完整性检查（Pre-Gate Self-Check，共 27 项分布在三个 Gate 前：6+8+13）。正常情况下用户完全感知不到，只有有问题时才会拦截——质量保障不是事后审计，而是**每个决策点前都有把关，不拉长正常流程**。Phase F 的 state-auditor 仍作为 post-run 完整审计（20 项 CHECK），形成"前置拦截 + 事后审计"的双保险。
 
-V5.0 新增 `devflow-gate` 薄控制层：一个外部 node 脚本，在 Phase 进入、Gate 3 后写操作、以及任务完成前做 **action authorization**（事前拦截），补上 pre-gate check 只能在 Gate 时运行的盲区。
+V6.0 将 `devflow-gate` 薄控制层从 3-action 扩展到 **5-action**：在 Phase 进入、sub-agent dispatch、Gate 展示、Gate 3 后写操作、以及任务完成前做 **action authorization**（事前拦截）。新增的 `dispatch_skill` 和 `present_gate` 两个 action 配合 permit 证据链（`.permits/`）和下游反压，让关键推进动作默认经过门禁，大幅提升协议执行的稳定性。
 
 ---
 
@@ -158,7 +158,7 @@ DevFlow/
 ├── reference/             # 系统参考文档
 └── scripts/
     ├── sync-skills.sh     # Skill 维护者同步工具
-    ├── devflow-gate.mjs   # 薄控制层主入口（V5.0）
+    ├── devflow-gate.mjs   # 薄控制层主入口（V6.0，5-action）
     └── lib/               # Gate action 检查模块
 ```
 
@@ -232,7 +232,7 @@ DevFlow is not a purely sequential pipeline — every gate and review node suppo
 - **Project Continuity Layer**: PROJECT-BRIEF, ROADMAP, DEFERRED, VISUAL-SYSTEM.md (design tokens + visual rules), COMPONENTS.md (component API + reuse inventory) — maintained across tasks; a `design-standards-template.md` provides the DevFlow-level starting point for each project's visual system
 - **Task State Store**: Full audit trail per task — events.jsonl, task.yaml, artifacts, decisions
 - **Pre-Gate Self-Check**: 27 checks distributed across 3 gates (6 + 8 + 13), run silently — invisible in the happy path, only fires when something is wrong
-- **devflow-gate v1** (V5.0): External node script providing action authorization before phase transitions, post-Gate-3 writes, and task completion — a half-hard gate that complements pre-gate auditing with upfront enforcement
+- **devflow-gate v2** (V6.0): 5-action gate covering phase transitions, sub-agent dispatch, Human Gate presentation, post-Gate-3 writes, and task completion — permit evidence chain (`.permits/`) + downstream backpressure makes bypassing the protocol detectable at the next mandatory checkpoint
 - Every sub-agent gets clear context; every decision is recorded and recoverable
 
 ## Quick Start

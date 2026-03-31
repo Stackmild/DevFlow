@@ -45,13 +45,15 @@ DevFlow/
 │   └── devflow-self-evaluation-guide.md
 ├── scripts/
 │   ├── sync-skills.sh           # Skill 维护者同步工具
-│   ├── devflow-gate.mjs         # 薄控制层主入口（V5.0）
+│   ├── devflow-gate.mjs         # 薄控制层主入口（V6.0，5-action）
 │   └── lib/
 │       ├── state-reader.mjs     # State store 读取工具
 │       └── checks/              # Gate action 检查模块
 │           ├── enter-phase.mjs
 │           ├── post-gate3.mjs
-│           └── complete-task.mjs
+│           ├── complete-task.mjs
+│           ├── dispatch-skill.mjs
+│           └── present-gate.mjs
 └── reference/                   # 系统参考文档（同前）
 ```
 
@@ -169,19 +171,21 @@ DevFlow 不是纯串行流程，每个 Gate 和审查节点都支持回流：
 
 Phase F 的 state-auditor 仍作为 post-run 完整审计（20 项 CHECK），其中 CHECK-20 会验证 pre-gate self-check 是否真的执行了——形成"前置拦截 + 事后审计"的双保险。
 
-### devflow-gate 薄控制层（V5.0）
+### devflow-gate 薄控制层（V6.0）
 
 Pre-Gate Self-Check 是 state auditing（事后审计）——如果 ORC 直接跳过 Gate 本身，这些检查根本不会运行。
 
-V5.0 引入了 `scripts/devflow-gate.mjs`，在 3 个最危险动作前做 **action authorization（事前拦截）**：
+V6.0 将 `scripts/devflow-gate.mjs` 从 3-action 扩展到 **5-action**，覆盖出口拦截（原 V5.0）和入口门禁（V6.0 新增）两层：
 
 | 动作 | 何时调用 | 防什么 |
 |------|---------|--------|
 | `enter_phase --phase {P}` | 写 `phase_entered` 事件之前 | Phase 跳过（如跳过 Phase C 直接进 D） |
 | `post_gate3_write --target-path {path}` | Gate 3 ACCEPT 后写非 Phase F 允许文件前 | Gate 3 后系统逃逸（ad-hoc 写入） |
 | `complete_task` | 写 `task.yaml status=completed` 之前 | 假 closeout（缺 events、有 open blocker） |
+| `dispatch_skill --skill {skill} --phase {phase}` | 构造 handoff-packet 之前（Template A/B Step 0） | 缺前置 artifact 就 dispatch（如无 change-package 就发 reviewer） |
+| `present_gate --gate {N}` | 向用户展示 Gate N 之前（Template C Step 0） | 跳过 pre-gate self-check 直接展示 Gate；上游 dispatch 未经门禁 |
 
-这是**半硬闸门**：调用了 → 脚本给出 machine-readable ALLOW/BLOCK；绕过了 → permit 缺失，后续 auditor 可发现。它不是完整外部状态机，但把需要记住的协议从 50+ 条压到 1 个命令 + 3 个 subcommand。
+这是**半硬闸门**：调用了 → 脚本给出 machine-readable ALLOW/BLOCK + 自动写 `.permits/` 证据文件；绕过了 → permit 缺失，后续 gate / auditor 可发现（下游反压）。把需要记住的协议从 50+ 条压到 1 个命令 + 5 个 subcommand。
 
 ```bash
 # 示例：进入 Phase D 前调用
