@@ -136,3 +136,14 @@ export function currentPhaseFromEvents(events) {
   if (entered.length === 0) return null;
   return entered[entered.length - 1].payload?.phase || null;
 }
+
+/**
+ * Scan .permits/ directory for permit filenames.
+ * Returns array of filenames only (e.g. ['dispatch_skill-code-reviewer-2026-03-31T10-00-00-000Z.json']).
+ * Returns [] if directory does not exist.
+ */
+export function scanPermits(taskDir) {
+  const dir = join(taskDir, '.permits');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter(f => f.endsWith('.json'));
+}

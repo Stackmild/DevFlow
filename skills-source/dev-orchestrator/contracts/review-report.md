@@ -10,6 +10,11 @@
 
 ```yaml
 reviewer: "{skill name}"
+producer:                              # V6.0 新增：审查独立性证据（第一轮仅 review/audit artifact 要求）
+  actor_type: "sub_agent"              # sub_agent | orchestrator（仅 INLINE_FALLBACK 时允许 orchestrator）
+  actor_id: "{skill name}"             # 与 reviewer 字段一致
+  dispatch_ref: "{event_id}"           # 对应 events.jsonl 中 skill_dispatched 事件的 event_id
+  fallback: false                      # INLINE_FALLBACK 时为 true，须同时有 inline_fallback event
 review_type: "code" | "consistency" | "pre_release_test"
 context_pulled:                    # ⚠️ 必填且非空
   - source: "artifact:{id}" | "file:{path}"
@@ -59,6 +64,11 @@ build_evidence:                    # ⚠️ V4.5 新增：code-reviewer Layer 0 
 - `missing_tests` 必填
 - verdict 与 findings/risk 一致
 - verdict 为 `accept_with_known_gaps` 时 `known_gaps_if_accepted` 非空
+- `producer.actor_type` = `sub_agent`（INLINE_FALLBACK 时 = `orchestrator` + `fallback: true` + 须有 `inline_fallback` event）
+  **⚠️ V6.0 引入，第二轮脚本验证**：当前 pre-gate self-check 和 present-gate.mjs 尚未检验此字段；
+  ORC 须填写，审计时以 state-auditor 人工核查为准，自动拦截在第二轮实现。
+- `producer.dispatch_ref` 必须匹配 events.jsonl 中一条 `skill_dispatched` 事件的 event_id
+  **⚠️ V6.0 引入，第二轮脚本验证**：同上，当前无自动验证，第二轮 PG3-4 增强时加入。
 
 ## 弱提示
 

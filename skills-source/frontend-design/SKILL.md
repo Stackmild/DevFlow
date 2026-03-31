@@ -250,7 +250,15 @@ CHECKPOINT: System layer complete — {n} token categories, {n} custom component
 - **FAIL-RETRY** = 可回退修复（有明确 retry_phase）
 - **FAIL-ESCALATE** = 结构性问题需人工介入
 
-#### 4.5 生成 frontend-design-package
+#### 4.5 产出前 Token 自检（P0-5，来源：amhub-insights-v1 复盘）
+
+在生成 design-spec / frontend-design-package 之前，必须对照项目 `design/` 目录（visual-system.md / component-guidelines.md / tailwind-theme.css）做一次 token audit：
+- 检查产出中引用的所有 CSS 变量是否在 token 定义中存在
+- 检查是否有硬编码 rgba / color-mix / shadow 违反设计系统禁止项
+- 检查 hover / selected / border token 是否与现有页面实现一致
+- 不合规项必须在产出中标注并修正，**不能留给 ORC 或 reviewer 事后发现**
+
+#### 4.6 生成 frontend-design-package
 
 按 `templates/frontend-design-package.md` 的 YAML schema 生成 Package Summary，嵌入输出 Section 20。
 

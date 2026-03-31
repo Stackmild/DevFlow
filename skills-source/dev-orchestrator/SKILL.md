@@ -131,9 +131,9 @@ orchestrator 可自行产出内容，但**必须同时满足**：
 
 ---
 
-### Universal Gate Rule（V5.0 — 薄控制层）
+### Universal Gate Rule（V6.0 — 薄控制层）
 
-执行以下 3 个动作前，运行 `node scripts/devflow-gate.mjs {action} --task-dir {state_dir} ...`。
+执行以下 5 个动作前，运行 `node scripts/devflow-gate.mjs {action} --task-dir {state_dir} ...`。
 `allowed: false` 时停止并展示 violations，**按协议不得继续**。
 
 | 动作 | 何时调用 |
@@ -141,6 +141,8 @@ orchestrator 可自行产出内容，但**必须同时满足**：
 | `enter_phase --phase {P}` | 写 `phase_entered` 事件之前 |
 | `post_gate3_write --target-path {path}` | Gate 3 ACCEPT 后写任何非 Phase F 允许文件之前 |
 | `complete_task` | 写 `task.yaml status=completed` 之前 |
+| `dispatch_skill --skill {skill} --phase {phase}` | 构造 handoff-packet 之前（Template A/B Step 0） |
+| `present_gate --gate {N}` | 向用户展示 Gate N 之前（Template C Step 0） |
 
 > 这是外部脚本检查（半硬闸门），不是 ORC 内部推理。脚本读取 state store 并返回 machine-readable JSON。
 
@@ -153,6 +155,8 @@ orchestrator 可自行产出内容，但**必须同时满足**：
 | 2 | 脚本错误（state dir 不存在、参数缺失、读取失败等） | PAUSE——停止当前 Phase 操作，输出错误信息，等待用户检查 state store |
 
 **WARN 处理**：`allowed: true` 但输出含 `warnings` 时，继续执行，同时向用户展示 warnings（不阻断，但需知晓）。
+
+**Failure Evidence 要求（P0-1 修复：amhub-insights-v1 复盘）**：gate check / pre-gate self-check / state-auditor 执行失败或未执行时，不仅阻断，还**必须在 events.jsonl 写入显式 failure event**（`gate_check_missing` / `pre_gate_check_failed` / `auditor_blocked`），确保事后有证据链可审计。不能出现"好像没过，但 state 里没有任何记录"。
 
 ---
 
@@ -875,9 +879,11 @@ EVENTS_REQUIRED:
 
 从 issues/ 中读取所有 status ≠ resolved 的条目，写入 task.yaml known_gaps。
 
-## Step F.2：Spawn state-auditor（可选）
+## Step F.2：Spawn state-auditor（必选 — P0-1 修复：amhub-insights-v1 复盘）
 
-传入 task_id + run_id，产出 `monitor/run-audit-{run_id}.md`。
+传入 task_id + run_id，产出 `monitor/run-audit-{run_id}.md`。至少执行 CHECK-20（验证 pre-gate self-check 是否真的执行了）。
+
+> ⚠️ 不再是"可选"——amhub-insights-v1 复盘发现 state-auditor 未运行导致 monitor/ 为空，pre-gate self-check 27 项全部跳过也无人发现。
 
 ## Step F.3：提取下一轮候选
 
@@ -894,6 +900,15 @@ EVENTS_REQUIRED:
 | task.yaml.completed_phases 含 phase_d | BLOCK |
 | issues/ 中所有 P0/P1 resolved 或 known_gap | BLOCK |
 | project_id 存在时：ROADMAP.md 已更新 | WARN（执行 F.5 后继续） |
+| **issue 对账**：task_completed.total_issues == issue_raised 事件数 == issues/ 目录文件数（含 resolved + open 的全部 yaml） | BLOCK |
+| **known_gaps 对账**：known_gaps_count == 归档中实际保留的 gap 数量；减少须有 gap_dropped/gap_merged 事件 | BLOCK |
+
+> **边界说明**：
+> - 零值情况：total_issues=0 时，三项均为 0，等式成立，视为通过，不 BLOCK
+> - issues/ 文件数：包含 status=resolved 和 status=open 的全部 yaml 文件（不只计 open）
+> - gap_dropped/gap_merged 是 Canonical Event Enum #32/#33，写入 events.jsonl
+>
+> P0-4 补充（amhub-insights-v1 复盘）：该任务 task_completed 记录 total_issues=11 但仅 1 条 issue_raised event、issues/ 目录完全为空；known_gaps 从 8 缩至 4 无记录。
 
 ⚠️ GATE: `node scripts/devflow-gate.mjs complete_task --task-dir {state_dir}`
 
@@ -1138,6 +1153,7 @@ Gate 3 ACCEPT 后、任何推进工作的写操作前必须执行。不通过则
 ## Template A: `dispatch_skill`
 
 ```
+0. ⚠️ GATE: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {skill} --phase {phase}
 1. 写 handoffs/handoff-{stage}-{skill}-{seq}.yaml
 2. 写 events.jsonl: skill_dispatched
 3. 写 events.jsonl: artifact_consumed（D.1/D.2 必须写）
@@ -1147,7 +1163,8 @@ Gate 3 ACCEPT 后、任何推进工作的写操作前必须执行。不通过则
 ## Template B: `record_review`
 
 ```
-0. 构造 reviewer handoff packet（MANDATORY）
+0a. ⚠️ GATE: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {reviewer} --phase phase_d
+0b. 构造 reviewer handoff packet（MANDATORY）
 1. 写 events.jsonl: skill_dispatched + artifact_consumed(change-package→reviewer)
 2. 验证 {reviewer}-report.yaml 存在 + 6 项字段验证
 3. 写 artifacts/{reviewer}-report.yaml + .md
@@ -1160,6 +1177,7 @@ Gate 3 ACCEPT 后、任何推进工作的写操作前必须执行。不通过则
 ## Template C: `record_gate_decision`
 
 ```
+0. ⚠️ GATE: node scripts/devflow-gate.mjs present_gate --task-dir {state_dir} --gate {N}
 1. 写 events.jsonl: gate_requested（必须在 gate_decision 之前）
 2. 写 decisions/gate-{1|2|3}.yaml（含 user_feedback 半结构化字段，见下方格式）
 3. 写 events.jsonl: gate_decision
@@ -1338,6 +1356,11 @@ Gate 展示前 → 执行检查（attempt_seq=1）
 | 26 | `known_gaps_collected` | audit |
 | 27 | `unknown_action_detected` | audit |
 | 28 | `closeout_blocked` | audit |
+| 29 | `gate_check_missing` | audit |
+| 30 | `pre_gate_check_failed` | audit |
+| 31 | `auditor_blocked` | audit |
+| 32 | `gap_dropped` | audit |
+| 33 | `gap_merged` | audit |
 
 ⚠️ event_type 是闭集（closed enum）。任何不在列表中的值视为 protocol violation（CHECK-7 检测）。
 

@@ -41,6 +41,20 @@ exit_checks:
   - check: "{完成条件}"
     verification: "{怎么验证}"
 # --- 可选字段 ---
+host_platform_context:              # 外部 repo 模式时必填；内部项目省略
+  host_platform: "{feishu_miaoda | other}"
+  deployment_model: "{cloud_config | local_code_sync}"
+  database_mode: "{cloud_platform_db | external_db | local_mock}"
+  handoff_audience: "{host_platform_ai | human_operator | both}"
+  # --- host-specific decision branching ---
+  # 当 host_platform = feishu_miaoda 时：
+  #   database_mode 分支：
+  #     cloud_platform_db + 表已存在且有数据 → 直接 @Inject(DRIZZLE_DATABASE) 读取，不建 ETL
+  #     cloud_platform_db + 表已存在但为空   → 走 NestJS sync 端点 import（参照现有 sync 模块）
+  #     cloud_platform_db + 表不存在         → 走 schema alignment / create-table，产出建表 SQL + handoff 给飞书执行
+  #   handoff_audience 分支：
+  #     用户上传 codebase 由飞书覆盖 → audience = host_platform_ai（默认）→ 产出给飞书的覆盖指令
+  #     用户自己手动执行操作         → audience = human_operator → 产出人类可读操作指南
 project_design_context:           # 可选；相关文件不存在时省略此字段
   design_standards_ref: "{devflow_root}/reference/design-standards-template.md"
   visual_system_ref: "{devflow_root}/projects/{project_id}/VISUAL-SYSTEM.md"   # 如存在

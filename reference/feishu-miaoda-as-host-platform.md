@@ -179,6 +179,18 @@ elif scope 两者都涉及:
 | 部分插件不可本地验证 | 飞书平台插件 API 可能本地不可用 |
 | **本地通过 ≠ 飞书云端通过** | 回传后仍需在飞书云端调试验证 |
 
+### 路径 B 的数据库约束（P0-3 补充，来源：amhub-insights-v1 复盘）
+
+飞书妙搭云端数据库 **不等于** 外部 DATABASE_URL 直连。设计数据访问方案前必须先判断：
+
+| 场景 | 正确做法 | 错误做法 |
+|------|---------|---------|
+| 云端表已存在且有数据 | 通过 `@Inject(DRIZZLE_DATABASE)` 直接读取 | 建独立 ETL 脚本用 DATABASE_URL 连 |
+| 云端表已存在但为空 | 走 NestJS sync 端点 import（参照现有 sync 模块模式） | 写独立 Node.js 脚本直连 DB |
+| 云端表还不存在 | 产出建表 SQL + handoff 给飞书执行，然后走 sync 端点 | 在代码中 auto-migrate |
+
+**核心原则**：数据访问必须通过飞书平台的 DI 注入机制（`@Inject(DRIZZLE_DATABASE)`），不能假设有独立的 DATABASE_URL 环境变量可用。
+
 ### 路径 B 的端到端闭环
 
 ```
