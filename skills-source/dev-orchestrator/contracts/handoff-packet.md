@@ -55,6 +55,13 @@ host_platform_context:              # 外部 repo 模式时必填；内部项目
   #   handoff_audience 分支：
   #     用户上传 codebase 由飞书覆盖 → audience = host_platform_ai（默认）→ 产出给飞书的覆盖指令
   #     用户自己手动执行操作         → audience = human_operator → 产出人类可读操作指南
+cloud_build_only_deps: []           # 可选；列出本地 node_modules 中不存在、只在宿主平台云端构建时注入的依赖
+  # 例：["@lark-apaas/client-toolkit"]
+  # Sub-agent 看到此字段时，直接跳过本地 find/grep 探索，改为通过 e2e shims / 文档 / 运行时推断其行为
+protected_host_files: []            # 可选；列出在宿主平台（如飞书妙搭）中不可被开发者修改的文件路径
+  # 例：["client/src/index.tsx"]
+  # FSD / frontend-design 看到此字段时，将相关能力（全局 Provider、主题切换入口）下沉到可修改的组件层
+  # 来源：dark-mode-001 复盘 (PFL-019 / C-015)
 project_design_context:           # 可选；相关文件不存在时省略此字段
   design_standards_ref: "{devflow_root}/reference/design-standards-template.md"
   visual_system_ref: "{devflow_root}/projects/{project_id}/VISUAL-SYSTEM.md"   # 如存在

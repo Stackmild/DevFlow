@@ -155,6 +155,21 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
     } else {
       checksPass.push('upstream_permit_reviewer');
     }
+    // webapp-consistency-audit permit — WARN when FSD dispatched but consistency-audit missing.
+    // Dark-mode-001 retrospective (PFL-017): large UI color system changes require consistency-audit
+    // but ORC can easily omit it. This is WARN (not BLOCK) because routing rules allow exceptions
+    // (e.g. pure backend changes with scope_flags.ui=false). Second round can upgrade to conditional BLOCK
+    // once change-package scope_flags are read by the gate script.
+    const hasFSDPermit = permits.some(p => p.startsWith('dispatch_skill-full-stack-developer-'));
+    const hasConsistencyAudit = permits.some(p => p.startsWith('dispatch_skill-webapp-consistency-audit-'));
+    if (hasFSDPermit && !hasConsistencyAudit) {
+      warnings.push(
+        'FSD was dispatched but no dispatch_skill permit for webapp-consistency-audit found in .permits/ — ' +
+        'if this change touches UI/theme/layout, webapp-consistency-audit should also be dispatched (dark-mode-001 retrospective: PFL-017)'
+      );
+    } else if (hasConsistencyAudit) {
+      checksPass.push('upstream_permit_consistency_audit');
+    }
   }
 
   const allowed = violations.length === 0;

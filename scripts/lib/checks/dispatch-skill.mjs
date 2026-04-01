@@ -2,9 +2,31 @@
 // Prevents: dispatching reviewer without change-package, FSD without implementation-scope
 // V6.0: new action for devflow-gate.mjs (Layer-2 upgrade)
 
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { findEvents, decisionExists } from '../state-reader.mjs';
+
+/**
+ * Read the latest change-package YAML from artifacts/ and check if scope_flags.ui = true.
+ * Returns true if ui flag is explicitly set to true, false otherwise (including if no file found).
+ * Uses regex — no YAML parser needed, zero deps.
+ */
+function changePackageHasUiFlag(taskDir) {
+  const artifactsDir = join(taskDir, 'artifacts');
+  if (!existsSync(artifactsDir)) return false;
+  const cpFiles = readdirSync(artifactsDir)
+    .filter(f => /^change-package-.*\.yaml$/.test(f))
+    .sort()
+    .reverse(); // highest revision_seq first
+  if (cpFiles.length === 0) return false;
+  try {
+    const content = readFileSync(join(artifactsDir, cpFiles[0]), 'utf8');
+    // Match: scope_flags: ... ui: true  (within ~300 chars of scope_flags key)
+    return /scope_flags[\s\S]{0,300}ui:\s*true/m.test(content);
+  } catch {
+    return false;
+  }
+}
 
 // --- Prerequisite matrix (hardcoded contract) ---
 // Convention: decision names use .yaml suffix to match decisionExists() canonical form.
@@ -123,6 +145,21 @@ export function check(taskDir, skill, phase, { events, warnings: readWarnings })
         checksPass.push('prerequisite_decision');
       }
       break;
+    }
+  }
+
+  // --- Check 2 (V6.0): scope_flags.ui routing check for code-reviewer ---
+  // When code-reviewer is dispatched and change-package scope_flags.ui=true,
+  // webapp-consistency-audit should also be dispatched (PFL-017: dark-mode-001 retrospective).
+  // WARN only — code-reviewer dispatch is not blocked; this is a routing reminder.
+  if (skill === 'code-reviewer' && violations.length === 0) {
+    if (changePackageHasUiFlag(taskDir)) {
+      warnings.push(
+        'change-package scope_flags.ui=true detected — webapp-consistency-audit should also be dispatched for this UI change ' +
+        '(PFL-017: large UI/theme/layout changes require consistency audit; omitting it caused Known Gaps in dark-mode-001)'
+      );
+    } else {
+      checksPass.push('scope_flags_ui_check');
     }
   }
 

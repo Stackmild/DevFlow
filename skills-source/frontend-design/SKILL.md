@@ -250,7 +250,17 @@ CHECKPOINT: System layer complete — {n} token categories, {n} custom component
 - **FAIL-RETRY** = 可回退修复（有明确 retry_phase）
 - **FAIL-ESCALATE** = 结构性问题需人工介入
 
-#### 4.5 产出前 Token 自检（P0-5，来源：amhub-insights-v1 复盘）
+#### 4.5 宿主平台约束自检（来源：dark-mode-001 复盘 PFL-019 / C-015）
+
+在生成 design-spec 之前，若 handoff-packet 含 `host_platform_context`，必须执行以下检查：
+
+1. **protected_host_files 检查**：读取 handoff-packet 的 `protected_host_files` 字段。对每个受保护文件，检查 design-spec 中是否有依赖该文件的能力点（如主题 Provider、全局样式注入、入口配置）。若有依赖 → 在 design-spec 中明确标注"⚠️ {文件名} 是宿主保护文件，相关能力必须下沉至可修改组件层（如 Layout.tsx）"，并提供替代实现路径。
+2. **能力链可部署性验证**：对所有涉及"全局包裹"（ThemeProvider、ContextProvider、全局 class 注入）的设计决策，确认能力链终点在可修改文件中，不依赖宿主平台入口文件。
+3. **cloud_build_only_deps 提示**：若 handoff-packet 含 `cloud_build_only_deps`，在 design-spec 的验收标准中注明"⚠️ 以下依赖本地不可验证，需在宿主平台首次构建后检查：{deps}"，避免 FSD 花大量时间本地探索。
+
+> 若 handoff-packet 不含 `host_platform_context`（内部项目），此步骤跳过。
+
+#### 4.6 产出前 Token 自检（P0-5，来源：amhub-insights-v1 复盘）
 
 在生成 design-spec / frontend-design-package 之前，必须对照项目 `design/` 目录（visual-system.md / component-guidelines.md / tailwind-theme.css）做一次 token audit：
 - 检查产出中引用的所有 CSS 变量是否在 token 定义中存在

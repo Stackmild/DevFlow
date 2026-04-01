@@ -516,9 +516,21 @@ A.0 Discovery:
            → project_path = CWD
            → detection_method = "external_manual"
 
-  2. 写入 task.yaml: devflow_root, project_path, detection_method
-  3. 写入 events.jsonl: task_initialized 事件中包含 detection_method 字段
-  4. project_path 在此步确定后不再变更（immutable for task lifetime）
+  2. ⚠️ Session-path sanity check（V6.0，来源：dark-mode-001 复盘 B1）：
+     devflow_root 确定后，检查路径是否包含典型的 session-managed 路径特征：
+       - 路径中包含 "claude-sessions" 或 "Application Support/Hong Cowork" 等字符串
+     若命中：向用户展示警告并请求确认：
+       "⚠️ 检测到 devflow_root 指向 Cowork session 目录（{devflow_root}），
+        而非独立的 DevFlow 工作区。这可能导致 self-improve 扫描遗漏此任务。
+        你是否有单独的 DevFlow 目录？
+        - 若有 → 请提供完整路径，我来更新 devflow-config.yaml
+        - 若确认使用此 session 目录 → 回复 CONFIRM"
+     用户提供新路径 → 验证 is_devflow_root() → 更新 devflow-config.yaml → detection_method = "session_corrected"
+     用户回复 CONFIRM → 继续，detection_method += "_session_path_acknowledged"
+
+  3. 写入 task.yaml: devflow_root, project_path, detection_method
+  4. 写入 events.jsonl: task_initialized 事件中包含 detection_method 字段
+  5. project_path 在此步确定后不再变更（immutable for task lifetime）
 ```
 
 **CWD 检测门控**：只检测 CWD 直接子目录，不做递归查找。is_devflow_root() 要求 skills-source/ AND CLAUDE.md 同时存在且 CLAUDE.md 前 5 行含 "# DevFlow"，排除偶然同名目录的误判。
