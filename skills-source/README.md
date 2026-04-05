@@ -167,8 +167,8 @@ product-manager（可选上游，仅在需求模糊时调用）
 
 | Skill | 成熟度 | 说明 |
 |-------|-------|------|
-| `dev-orchestrator` | 🆕 MVP | 首版，试点验证中（已从"方案编排"升级为"设计+实现+审查闭环"） |
-| `full-stack-developer` | 🆕 MVP | 首版，待试点验证 |
+| `dev-orchestrator` | ✅ Stable | Phase-Driven v4 骨架稳定；Schema Signal Patch 新增 completion_status / debug_closure / verification_boundary 三项 schema 信号 |
+| `full-stack-developer` | ✅ Stable | change-package 产出规范升级（Schema Signal Patch 三项新字段） |
 | `code-reviewer` | 🆕 MVP | 首版，待试点验证 |
 | `web-app-architect` | ✅ Stable | 内容完整，结构系统，有 ADR 机制 |
 | `backend-data-api` | ✅ Stable | 覆盖全，原则清晰，有真相层级模型 |
@@ -198,4 +198,4 @@ product-manager（可选上游，仅在需求模糊时调用）
 
 ---
 
-*最后更新：2026-03-19*
+*最后更新：2026-04-05（Schema Signal Patch）*

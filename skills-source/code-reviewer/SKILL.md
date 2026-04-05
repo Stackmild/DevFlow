@@ -270,6 +270,8 @@ verdict: "accept" | "request_changes" | "accept_with_known_gaps"
 known_gaps_if_accepted:            # verdict 为 accept_with_known_gaps 时必须非空
   - gap: "{gap 描述}"
     risk: "{风险}"
+completion_status: "done"            # done | done_with_concerns | needs_context | blocked
+completion_note: ""                  # ≤ 2 句，空 = 无补充
 ```
 
 **同时输出人类可读版**（`artifacts/code-review-report.md`）：

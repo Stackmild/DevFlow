@@ -306,6 +306,25 @@ delivery_readiness:
     typecheck: "pass" | "fail" | "not_run" | "n/a"  # TypeScript 项目必须跑，非 TS 项目填 "n/a"
     build: "pass" | "fail" | "not_run" | "n/a"      # 有 build script 必须跑，无则填 "n/a"
     local_smoke: "pass" | "fail" | "not_run"
+# verification_boundary（条件 MANDATORY，Schema Signal Patch 新增）
+# 触发：execution_plan 有 host_target 非空 | cloud_validation_required: true | delivery_readiness 存在
+# 纯 review-only / documentation 任务省略
+verification_boundary:
+  verified:
+    - "TS 编译"                        # ≤ 3 条，每条 ≤ 15 字
+  unverified:
+    - "{云端或无法本地验证的项}"          # ≤ 3 条，每条 ≤ 15 字；无则留空列表
+  unverified_reason: ""               # 1 句，≤ 40 字；unverified 为空时留空
+# debug_closure（条件 MANDATORY，Schema Signal Patch 新增）
+# 条件：task_type in [bugfix, hotfix]；其他任务类型省略此块
+debug_closure:
+  all_symptoms_explained: true | false
+  secondary_root_cause_checked: true | false
+  adjacent_impact_checked: true | false
+  verification_scope: "local"        # local | cloud | both
+# completion_status（Schema Signal Patch 新增，MANDATORY）
+completion_status: "done"            # done | done_with_concerns | needs_context | blocked
+completion_note: ""                  # ≤ 2 句，空 = 无补充
 ```
 
 > ⚠️ `scope_flags` 5 个 boolean 字段**全部必须显式填写**（不允许缺失或 null）。若全部为 false，须在 diff_summary 中说明原因。缺失任何字段 → D.1 判定为 INCOMPLETE。

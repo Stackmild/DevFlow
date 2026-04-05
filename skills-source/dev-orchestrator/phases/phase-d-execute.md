@@ -102,6 +102,11 @@ EVENTS_REQUIRED:
 
 判定基于 **artifact 文件存在性 + 最小质量门槛**，不依赖 sub-agent 自报：
 
+> **[Schema Signal Patch] completion_status 短路规则**：在进入下方分类表前，先检查 change-package 的 `completion_status` 字段。
+> - `blocked` 或 `needs_context`：直接暂停，向用户说明 completion_note，不进入分类表。
+> - `done` 或 `done_with_concerns`：继续执行分类表（artifact 完整性兜底检查）。
+> - 字段缺失：跳过此步，直接走分类表（向后兼容）。
+
 | 分类 | 判定条件 | 行为 |
 |------|---------|------|
 | **NORMAL** | `change-package-{seq}.yaml` 存在 + 通过最小质量门槛（见下表） | 收集 → artifacts/ → 进入 D.2 |
@@ -221,6 +226,11 @@ Reviewer spawn 完成后，orchestrator **必须验证**：
 > 此字段用于事后解释"reviewer 为什么没抓到某个问题"。
 
 ### D.2 Runtime Fallback Classification（V4.1 新增）
+
+> **[Schema Signal Patch] completion_status 短路规则**：在进入下方分类表前，先检查 review report 的 `completion_status` 字段。
+> - `blocked` 或 `needs_context`：直接暂停，向用户说明 completion_note，不进入分类表。
+> - `done` 或 `done_with_concerns`：继续执行分类表（artifact 完整性兜底检查）。
+> - 字段缺失：跳过此步，直接走分类表（向后兼容）。
 
 | 分类 | 判定条件 | 行为 |
 |------|---------|------|
@@ -395,6 +405,16 @@ release_manager_trigger_reason: "delivery_readiness 字段存在" | "N/A"
 - DDL/migration SQL 以可直接在目标平台执行的格式提供
 
 **部署验证状态**：基于 `delivery_readiness.verification` 渲染，任何 `fail` 项标注 ⚠️。
+
+### Gate 3 验证边界展示（条件触发，Schema Signal Patch 新增）
+
+如果 change-package 包含 `verification_boundary` 字段，Gate 3 展示必须额外包含：
+
+**验证边界（汇总）**：
+- ✅ 已验证：{verification_boundary.verified 列表}
+- ⏳ 未验证：{verification_boundary.unverified 列表}（原因：{unverified_reason}）
+
+> 此为汇总声明，不替代 `tests_run` 明细。若 unverified 非空，用户在 Gate 3 决策时应知晓哪些验证尚待完成。
 
 ### Gate 3 后必须执行
 

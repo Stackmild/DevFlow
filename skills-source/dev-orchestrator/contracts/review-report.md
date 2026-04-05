@@ -50,7 +50,17 @@ build_evidence:                    # ⚠️ V4.5 新增：code-reviewer Layer 0 
     build: "pass" | "fail" | "not_run" | "n/a"
   compile_risk_patterns_found: []  # 如有：["useRef_no_init", "missing_use_client", ...]
   layer_0_verdict: "clean" | "concerns_found"
+completion_status: "done"            # done | done_with_concerns | needs_context | blocked
+completion_note: ""                  # ≤ 2 句，空 = 无补充
 ```
+
+**completion_status 填写规则（reviewer）**：
+- `done`：审查完成，verdict 已确定
+- `done_with_concerns`：审查完成，但 reviewer 对某项有保留意见（超出 known_gaps 范畴），见 completion_note
+- `needs_context`：缺少审查所需信息（如 change-package 缺失），无法完成，见 completion_note
+- `blocked`：遭遇外部阻塞，见 completion_note
+
+**Truth-source 规则（ORC 读取时遵循）**：与 change-package 相同——`blocked`/`needs_context` 触发 early-exit；`done`/`done_with_concerns` 仍接受 artifact 完整性兜底检查。
 
 ## 人类可读版（Markdown）
 

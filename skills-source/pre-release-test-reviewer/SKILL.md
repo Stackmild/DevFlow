@@ -432,6 +432,8 @@ verdict: "go" | "go_with_risk" | "no_go"
 known_gaps_if_accepted:
   - gap: "{gap}"
     risk: "{风险}"
+completion_status: "done"            # done | done_with_concerns | needs_context | blocked
+completion_note: ""                  # ≤ 2 句，空 = 无补充
 ```
 
 **人类可读版**（写入 `artifacts/pre-release-test-report.md`）：
