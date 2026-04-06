@@ -26,6 +26,8 @@
 
 ## 2. 与上游同步（你自行 Fork 后）
 
+若你在 GitHub 上 **Fork** 了官方仓库，建议：`origin` 指向你的 Fork（`git push` 目标），`upstream` 固定为官方，用于拉取更新：
+
 ```bash
 git remote add upstream https://github.com/Stackmild/DevFlow.git   # 若尚未添加
 git fetch upstream
@@ -49,10 +51,9 @@ git merge upstream/main
 
 ## 4. 外部业务仓库（混用）
 
-在**业务仓库根目录**创建 `devflow-config.yaml`（可被 Phase A 读取）：
+在**业务仓库根目录**创建 `devflow-config.yaml`（可被 Phase A 读取）。可从模板复制：[templates/devflow-config.external-repo.yaml](templates/devflow-config.external-repo.yaml)。
 
 ```yaml
-# devflow-config.yaml — 放在业务仓库根目录
 devflow_root: "/绝对路径/到你的/DevFlow克隆"
 ```
 
