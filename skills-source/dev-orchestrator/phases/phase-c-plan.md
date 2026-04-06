@@ -52,7 +52,7 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
-⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_c`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" enter_phase --task-dir {state_dir} --phase phase_c`
 
 1. Read `task.yaml`（确认 Phase B completed 或 Gate 1 通过）
 2. Read `artifacts/product-spec.md`（Phase B 产出）

@@ -1,5 +1,7 @@
 # DevFlow — 多 Agent 开发工作流系统
 
+> **Cursor 用户**：若你使用本仓库的 **`cursor-integration`** 分支，请阅读 [README-CURSOR.md](README-CURSOR.md)（`sync-skills-cursor.sh`、`devflow-gate` 绝对路径、Subagents、`devflow-config` / `AGENTS` 模板）。
+
 DevFlow 是面向非专业开发者的、基于 **Claude Cowork** 的半自动开发工作流。由一个 orchestrator 按照固定的阶段骨架（定义 → 产品分析 → 设计 → 执行+审查 → 收尾），在每个阶段自动调度合适的专业 skill，人类只在3个决策点介入。项目级 continuity layer（ROADMAP、视觉规范、组件清单等）让产品方向、设计语言和架构决策跨任务延续，每次任务不从零开始；任务级 state store 则让每次执行可审计、可恢复、可纠错。
 
 ## 快速开始

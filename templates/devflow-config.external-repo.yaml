@@ -1,0 +1,4 @@
+# 复制到「业务仓库根目录」，文件名为 devflow-config.yaml
+# Phase A 用于解析 DevFlow 中央目录（orchestrator-state、scripts、reference）
+
+devflow_root: "/绝对路径/到你的/DevFlow克隆"

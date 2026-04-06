@@ -46,7 +46,7 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
-⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_d`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" enter_phase --task-dir {state_dir} --phase phase_d`
 
 1. Read `task.yaml`（确认 Phase C completed 或 C skip rationale 存在）
 2. Read `artifacts/implementation-scope.md`（如 Phase C 未 skip）或 `artifacts/product-spec.md`（如 C skip）
@@ -424,7 +424,7 @@ release_manager_trigger_reason: "delivery_readiness 字段存在" | "N/A"
 2. events.jsonl（gate_requested(final) + gate_decision(final)）
 3. 如 ACCEPT → 进入 Phase F
 4. ⚠️ **如用户在 ACCEPT 后请求额外工作** → 铁律 #15 生效 → 执行 `../contracts/continuation-protocol.md` §Pre-Action Check → 以固定模板输出结果 → 通过后走 write-through Template D。不可跳过 Pre-Action Check 直接操作任何文件。
-5. ⚠️ GATE: Gate 3 ACCEPT 后的所有 task state dir 写入（Phase F 允许文件除外），必须先调用 `node scripts/devflow-gate.mjs post_gate3_write --task-dir {state_dir} --target-path {path}`。
+5. ⚠️ GATE: Gate 3 ACCEPT 后的所有 task state dir 写入（Phase F 允许文件除外），必须先调用 `node "{devflow_root}/scripts/devflow-gate.mjs" post_gate3_write --task-dir {state_dir} --target-path {path}`。
 
 ### Phase D Exit Sequence（V4.3 硬规则）
 

@@ -51,7 +51,7 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
-⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_f`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" enter_phase --task-dir {state_dir} --phase phase_f`
 
 1. Read `task.yaml`（确认 Gate 3 ACCEPT 或 Gate 1 DEFER-TASK）
 2. Read `issues/` 目录中所有文件
@@ -99,7 +99,7 @@ EVENTS_REQUIRED:
 
 **WARN 级失败处理**：自动修正（count 对齐 / 执行 F.5），修正后重新检查，全部通过后继续。
 
-⚠️ GATE: `node scripts/devflow-gate.mjs complete_task --task-dir {state_dir}`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" complete_task --task-dir {state_dir}`
 
 ## Step F.4：更新最终状态
 

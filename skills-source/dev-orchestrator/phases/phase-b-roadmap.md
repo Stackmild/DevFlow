@@ -45,7 +45,7 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
-⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_b`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" enter_phase --task-dir {state_dir} --phase phase_b`
 
 0. **⚠️ Project Discovery pre-step（V4.3 Continuity Layer）**：
    - 检查 `task.yaml.project_id` 是否存在

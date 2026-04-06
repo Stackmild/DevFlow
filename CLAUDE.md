@@ -41,10 +41,12 @@ DevFlow/
 │       └── change-audit-l2-contract-review/ # L2 契约审计 sub-skill
 ├── reference/                   # 系统参考文档
 │   ├── cowork-as-host-platform.md
+│   ├── cursor-as-host-platform.md   # cursor-integration：Cursor 宿主说明
 │   ├── feishu-miaoda-as-host-platform.md
 │   └── devflow-self-evaluation-guide.md
 ├── scripts/
-│   ├── sync-skills.sh           # Skill 维护者同步工具
+│   ├── sync-skills.sh           # Skill 同步到 Cowork 全局目录
+│   ├── sync-skills-cursor.sh    # Skill 同步到 ~/.cursor/skills（cursor-integration）
 │   ├── devflow-gate.mjs         # 薄控制层主入口（V6.0，5-action）
 │   └── lib/
 │       ├── state-reader.mjs     # State store 读取工具
@@ -189,7 +191,7 @@ V6.0 将 `scripts/devflow-gate.mjs` 从 3-action 扩展到 **5-action**，覆盖
 
 ```bash
 # 示例：进入 Phase D 前调用
-node scripts/devflow-gate.mjs enter_phase --task-dir orchestrator-state/{task_id} --phase phase_d
+node "{devflow_root}/scripts/devflow-gate.mjs" enter_phase --task-dir "{devflow_root}/orchestrator-state/{task_id}" --phase phase_d
 ```
 
 详见 `scripts/devflow-gate.mjs` 和 SKILL.md §Universal Gate Rule。

@@ -18,10 +18,10 @@ triggers:
 
 ## 前置认知
 
-> 详细文档：`./cowork-as-host-platform.md` + `./feishu-miaoda-as-host-platform.md`
+> 宿主能力（Cursor）：必读 `{devflow_root}/reference/cursor-as-host-platform.md`。飞书妙搭协作：`./feishu-miaoda-as-host-platform.md`。若在 Cowork 中运行，对照 `{devflow_root}/reference/cowork-as-host-platform.md`。
 
-你运行在 **Cowork 宿主平台**上。平台内置大模型、skill 体系、MCP、自动化调度。
-先探索平台已有能力，再决定哪些需要写代码。能用平台的不自建。
+你运行在 **Cursor 编辑器内的 Agent 环境**中：大模型、Skills、Subagents、终端、Git、（可选）MCP 与浏览器工具。Cowork 专有的 Automation Service **在此默认不存在**——定时/信号驱动类需求应标为 handoff、缩小范围或显式自建。
+先探索当前 workspace 与 MCP 实际可用能力，再决定哪些需要写代码。能用平台与 MCP 的不自建。
 
 ---
 
@@ -133,7 +133,8 @@ orchestrator 可自行产出内容，但**必须同时满足**：
 
 ### Universal Gate Rule（V6.0 — 薄控制层）
 
-执行以下 5 个动作前，运行 `node scripts/devflow-gate.mjs {action} --task-dir {state_dir} ...`。
+执行以下 5 个动作前，运行 `node "{devflow_root}/scripts/devflow-gate.mjs" {action} --task-dir {state_dir} ...`。
+`{devflow_root}` 必须取自 `task.yaml.devflow_root` 的**绝对路径**（DevFlow 仓库根目录，内含 `scripts/` 与 `skills-source/`）。`{state_dir}` 为 `{devflow_root}/orchestrator-state/{task_id}` 的绝对路径。**禁止**依赖 shell 当前目录使用 `node scripts/devflow-gate.mjs`。
 `allowed: false` 时停止并展示 violations，**按协议不得继续**。
 
 | 动作 | 何时调用 |
@@ -645,7 +646,7 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
-⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_b`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" enter_phase --task-dir {state_dir} --phase phase_b`
 
 0. **Project Discovery**：检查 `task.yaml.project_id`，如不存在 → 列出 `projects/` → 用户选择或创建 → 写回
 0.1 **壳目录检查**：如 `project_path` 非空 AND `{devflow_root}/projects/{project_id}/` 不存在 → 创建壳目录
@@ -720,7 +721,7 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
-⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_c`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" enter_phase --task-dir {state_dir} --phase phase_c`
 
 1. Read `task.yaml`
 2. Read `artifacts/product-spec.md`
@@ -788,7 +789,7 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
-⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_d`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" enter_phase --task-dir {state_dir} --phase phase_d`
 
 1. Read `task.yaml`
 2. Read `artifacts/implementation-scope.md`（或 product-spec.md 如 C skip）
@@ -885,7 +886,7 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
-⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_f`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" enter_phase --task-dir {state_dir} --phase phase_f`
 
 ## Step F.1：归集 Known Gaps
 
@@ -922,7 +923,7 @@ EVENTS_REQUIRED:
 >
 > P0-4 补充（amhub-insights-v1 复盘）：该任务 task_completed 记录 total_issues=11 但仅 1 条 issue_raised event、issues/ 目录完全为空；known_gaps 从 8 缩至 4 无记录。
 
-⚠️ GATE: `node scripts/devflow-gate.mjs complete_task --task-dir {state_dir}`
+⚠️ GATE: `node "{devflow_root}/scripts/devflow-gate.mjs" complete_task --task-dir {state_dir}`
 
 ## Step F.4：更新最终状态
 
@@ -1165,7 +1166,7 @@ Gate 3 ACCEPT 后、任何推进工作的写操作前必须执行。不通过则
 ## Template A: `dispatch_skill`
 
 ```
-0. ⚠️ GATE: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {skill} --phase {phase}
+0. ⚠️ GATE: node "{devflow_root}/scripts/devflow-gate.mjs" dispatch_skill --task-dir {state_dir} --skill {skill} --phase {phase}
 1. 写 handoffs/handoff-{stage}-{skill}-{seq}.yaml
 2. 写 events.jsonl: skill_dispatched
 3. 写 events.jsonl: artifact_consumed（D.1/D.2 必须写）
@@ -1175,7 +1176,7 @@ Gate 3 ACCEPT 后、任何推进工作的写操作前必须执行。不通过则
 ## Template B: `record_review`
 
 ```
-0a. ⚠️ GATE: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {reviewer} --phase phase_d
+0a. ⚠️ GATE: node "{devflow_root}/scripts/devflow-gate.mjs" dispatch_skill --task-dir {state_dir} --skill {reviewer} --phase phase_d
 0b. 构造 reviewer handoff packet（MANDATORY）
 1. 写 events.jsonl: skill_dispatched + artifact_consumed(change-package→reviewer)
 2. 验证 {reviewer}-report.yaml 存在 + 6 项字段验证
@@ -1189,7 +1190,7 @@ Gate 3 ACCEPT 后、任何推进工作的写操作前必须执行。不通过则
 ## Template C: `record_gate_decision`
 
 ```
-0. ⚠️ GATE: node scripts/devflow-gate.mjs present_gate --task-dir {state_dir} --gate {N}
+0. ⚠️ GATE: node "{devflow_root}/scripts/devflow-gate.mjs" present_gate --task-dir {state_dir} --gate {N}
 1. 写 events.jsonl: gate_requested（必须在 gate_decision 之前）
 2. 写 decisions/gate-{1|2|3}.yaml（含 user_feedback 半结构化字段，见下方格式）
 3. 写 events.jsonl: gate_decision

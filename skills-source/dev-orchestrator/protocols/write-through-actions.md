@@ -14,7 +14,7 @@
 触发：每次 spawn sub-agent 前。
 
 ```
-0. ⚠️ GATE（V6.0）: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {skill} --phase {phase}
+0. ⚠️ GATE（V6.0）: node "{devflow_root}/scripts/devflow-gate.mjs" dispatch_skill --task-dir {state_dir} --skill {skill} --phase {phase}
    allowed: false → 停止，不得 spawn；allowed: true → 继续（permit 已自动写入 .permits/）
 1. 写 handoffs/handoff-{stage}-{skill}-{seq}.yaml    ← handoff packet
 2. 写 events.jsonl: skill_dispatched                   ← 捎带写入
@@ -36,7 +36,7 @@
 触发：每个 reviewer spawn 前 + 完成后。
 
 ```
-0a. ⚠️ GATE（V6.0）: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {reviewer} --phase phase_d
+0a. ⚠️ GATE（V6.0）: node "{devflow_root}/scripts/devflow-gate.mjs" dispatch_skill --task-dir {state_dir} --skill {reviewer} --phase phase_d
     allowed: false → 停止；allowed: true → 继续（permit 已自动写入 .permits/）
 0b. ⚠️ Reviewer Handoff Packet 构造（MANDATORY — **blocking gate**：handoff 不存在 = reviewer 不 spawn）：
    此规则**不分首轮/续行/轻量/完整**。RE-ENTER D 的 reviewer handoff 与首轮同级。
@@ -71,7 +71,7 @@
 触发：Gate 1、Gate 2 或 Gate 3 用户做出选择后。
 
 ```
-0. ⚠️ GATE（V6.0）: node scripts/devflow-gate.mjs present_gate --task-dir {state_dir} --gate {N}
+0. ⚠️ GATE（V6.0）: node "{devflow_root}/scripts/devflow-gate.mjs" present_gate --task-dir {state_dir} --gate {N}
    allowed: false → 停止，不得展示 Gate；allowed: true → 继续（permit 已自动写入 .permits/）
 1. 写 events.jsonl: gate_requested                       ← 先落证据
    ⚠️ gate_requested 必须在 gate_decision 之前写入，两者成对出现。
