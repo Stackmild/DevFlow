@@ -2,7 +2,7 @@
 // Prevents: showing Gate without pre-gate self-check evidence, or without upstream dispatch permits
 // V6.0: new action for devflow-gate.mjs (Layer-2 upgrade)
 
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { decisionExists, scanPermits } from '../state-reader.mjs';
 
@@ -169,6 +169,46 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
       );
     } else if (hasConsistencyAudit) {
       checksPass.push('upstream_permit_consistency_audit');
+    }
+
+    // --- Check 4 (Schema Signal Patch): Reviewer dispatch downgrade detection ---
+    // If routing-decision-D matched a rule that implies a reviewer,
+    // but that reviewer appears in skipped_reviewers without a formal skip decision,
+    // warn about manual dispatch downgrade (PFL-028: amhub-phase1-ia retrospective).
+    const RULE_IMPLIES_REVIEWER = {
+      'rule_ui': 'webapp-consistency-audit',
+      'rule_data': 'pre-release-test-reviewer',
+    };
+    const rdPath = join(taskDir, 'decisions', 'routing-decision-D.yaml');
+    if (existsSync(rdPath)) {
+      try {
+        const rdContent = readFileSync(rdPath, 'utf8');
+        const ruleMatch = rdContent.match(/config_rule_matched:\s*["']?(\w+)/);
+        if (ruleMatch) {
+          const matchedRule = ruleMatch[1];
+          const impliedReviewer = RULE_IMPLIES_REVIEWER[matchedRule];
+          if (impliedReviewer) {
+            // Check if implied reviewer was skipped
+            const skippedMatches = [...rdContent.matchAll(/- skill:\s*["']?([^\s"'\n]+)/g)];
+            const skippedSkills = skippedMatches.map(m => m[1]);
+            if (skippedSkills.includes(impliedReviewer)) {
+              const hasSkipDecision = decisionExists(taskDir, `reviewer-skip-${impliedReviewer}`);
+              if (!hasSkipDecision) {
+                warnings.push(
+                  `routing-decision-D matched ${matchedRule} (implies ${impliedReviewer}), ` +
+                  `but ${impliedReviewer} was manually skipped without a reviewer-skip-*.yaml decision file. ` +
+                  `To skip a matched reviewer, write decisions/reviewer-skip-${impliedReviewer}.yaml with rationale.`
+                );
+              } else {
+                checksPass.push('reviewer_skip_decision_exists');
+              }
+            }
+          }
+        }
+      } catch {
+        // Non-fatal — routing-decision-D parse failure does not block Gate 3
+        warnings.push('routing-decision-D.yaml could not be read for reviewer downgrade check');
+      }
     }
   }
 

@@ -28,6 +28,41 @@ function changePackageHasUiFlag(taskDir) {
   }
 }
 
+/**
+ * Check if scope_flags uses canonical field names (ui, interaction, data_model, schema, api).
+ * Returns { valid: boolean, detail: string|null }.
+ */
+const CANONICAL_SCOPE_FLAGS = ['ui', 'interaction', 'data_model', 'schema', 'api'];
+
+function checkScopeFlagsCanonical(taskDir) {
+  const artifactsDir = join(taskDir, 'artifacts');
+  if (!existsSync(artifactsDir)) return { valid: true, detail: null };
+  const cpFiles = readdirSync(artifactsDir)
+    .filter(f => /^change-package-.*\.yaml$/.test(f))
+    .sort()
+    .reverse();
+  if (cpFiles.length === 0) return { valid: true, detail: null };
+  try {
+    const content = readFileSync(join(artifactsDir, cpFiles[0]), 'utf8');
+    const sfMatch = content.match(/^scope_flags:\s*\n((?:[ \t]+\S.*\n?)*)/m);
+    if (!sfMatch) return { valid: false, detail: 'scope_flags block not found in change-package' };
+    const sfBlock = sfMatch[1];
+    const foundKeys = [...sfBlock.matchAll(/^\s+(\w+):/gm)].map(m => m[1]);
+    const missing = CANONICAL_SCOPE_FLAGS.filter(k => !foundKeys.includes(k));
+    const extra = foundKeys.filter(k => !CANONICAL_SCOPE_FLAGS.includes(k));
+    if (missing.length > 0 || extra.length > 0) {
+      return {
+        valid: false,
+        detail: `scope_flags uses non-canonical keys — missing: [${missing.join(', ')}], extra: [${extra.join(', ')}]. ` +
+                `Canonical keys are: ${CANONICAL_SCOPE_FLAGS.join(', ')}`,
+      };
+    }
+    return { valid: true, detail: null };
+  } catch {
+    return { valid: true, detail: null };
+  }
+}
+
 // --- Prerequisite matrix (hardcoded contract) ---
 // Convention: decision names use .yaml suffix to match decisionExists() canonical form.
 const PREREQS = {
@@ -145,6 +180,19 @@ export function check(taskDir, skill, phase, { events, warnings: readWarnings })
         checksPass.push('prerequisite_decision');
       }
       break;
+    }
+  }
+
+  // --- Check 1.5 (Schema Signal Patch): scope_flags canonical field name validation ---
+  // Canonical keys: ui, interaction, data_model, schema, api (per change-package.md)
+  // Non-canonical names (has_frontend_changes etc.) → WARN
+  const REVIEWER_LIKE = ['code-reviewer', 'webapp-consistency-audit', 'pre-release-test-reviewer'];
+  if (REVIEWER_LIKE.includes(skill) && violations.length === 0) {
+    const sfResult = checkScopeFlagsCanonical(taskDir);
+    if (sfResult.valid) {
+      checksPass.push('scope_flags_canonical');
+    } else {
+      warnings.push(`scope_flags canonical check: ${sfResult.detail}`);
     }
   }
 
