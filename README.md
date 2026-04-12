@@ -106,6 +106,8 @@ DevFlow 的每个 Gate 和审查节点都支持回流：
 
 V6.0 将 `devflow-gate` 薄控制层从 3-action 扩展到 **5-action**：在 Phase 进入、sub-agent dispatch、Gate 展示、Gate 3 后写操作、以及任务完成前做 **action authorization**（事前拦截）。新增的 `dispatch_skill` 和 `present_gate` 两个 action 配合 permit 证据链（`.permits/`）和下游反压，让关键推进动作默认经过门禁，大幅提升协议执行的稳定性。
 
+**Phase 1 Enforcer（2026-04-12）**：`scripts/devflow-enforcer.mjs` 作为 Cowork PreToolUse / UserPromptSubmit hook，把 devflow-gate.mjs 的 5 个 action 从"ORC 主动调用"升级为**文件写入时自动触发**，关键拦截点（gate decision 写入、task 完成、handoff dispatch、phase 进入、Gate 3 后写入）不再依赖 LLM 记忆。
+
 ---
 
 ### 改进 DevFlow
@@ -157,9 +159,10 @@ DevFlow/
 │       └── change-audit-l2-contract-review/ # L2 契约审计 sub-skill
 ├── reference/             # 系统参考文档
 └── scripts/
-    ├── sync-skills.sh     # Skill 维护者同步工具
-    ├── devflow-gate.mjs   # 薄控制层主入口（V6.0，5-action）
-    └── lib/               # Gate action 检查模块
+    ├── sync-skills.sh         # Skill 维护者同步工具
+    ├── devflow-gate.mjs       # 薄控制层主入口（V6.0，5-action）
+    ├── devflow-enforcer.mjs   # Hook 路由器：PreToolUse/UserPromptSubmit 自动执行层（Phase 1）
+    └── lib/                   # Gate action 检查模块 + enforcer 辅助函数
 ```
 
 **本地目录（运行时自动创建，不入仓库）：**

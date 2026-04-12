@@ -46,8 +46,9 @@ DevFlow/
 ├── scripts/
 │   ├── sync-skills.sh           # Skill 维护者同步工具
 │   ├── devflow-gate.mjs         # 薄控制层主入口（V6.0，5-action）
+│   ├── devflow-enforcer.mjs     # Hook 路由器（Phase 1 自动执行层）
 │   └── lib/
-│       ├── state-reader.mjs     # State store 读取工具
+│       ├── state-reader.mjs     # State store 读取工具 + enforcer 辅助函数
 │       └── checks/              # Gate action 检查模块
 │           ├── enter-phase.mjs
 │           ├── post-gate3.mjs
@@ -193,6 +194,25 @@ node scripts/devflow-gate.mjs enter_phase --task-dir orchestrator-state/{task_id
 ```
 
 详见 `scripts/devflow-gate.mjs` 和 SKILL.md §Universal Gate Rule。
+
+### DevFlow Enforcer Phase 1（Hook 自动执行层，2026-04-12）
+
+devflow-gate.mjs 的 5 个 action 已实现完整检查逻辑，但原先依赖 ORC 主动调用——context 膨胀或 compaction 信息损失时 enforcement 容易失败。Phase 1 通过 Cowork 宿主平台的 PreToolUse / UserPromptSubmit hook，把关键写入点改成自动拦截，不再依赖 LLM 记得调用。
+
+`scripts/devflow-enforcer.mjs` 作为 hook 路由器，在以下写入前自动触发对应 gate action：
+
+| 写入路径模式 | 自动触发 | 失败行为 |
+|---|---|---|
+| `decisions/gate-{1,2,3}.yaml` | `present_gate --gate N` | **DENY** |
+| `task.yaml`（status=completed） | `complete_task` | **DENY** |
+| `handoffs/handoff-*`（含 skill_name） | `dispatch_skill --skill S --phase P` | **DENY** |
+| `events.jsonl`（含 phase_entered 事件） | `enter_phase --phase P` | **DENY** |
+| Gate 3 后 orchestrator-state/ 任意写入 | `post_gate3_write` | **DENY** |
+| Gate 3 后写入 project_path 且无 continuation | — | **DENY**（continuation_required） |
+
+Active Task Resolution 使用 4 级优先级（path extract → project_path match → env var → global scan）。PreToolUse 不用 global scan（P4），避免误拦。
+
+**Phase 1 已知边界**：检查 continuation *存在性*，不检查 continuation type 与写入路径的兼容性（NON-CODE/RECORD-STOP 类型不应允许源码写入）。此细粒度校验留 Phase 2。
 
 ## 两层持久化
 

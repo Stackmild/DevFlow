@@ -1,6 +1,6 @@
 # DevFlow Backlog
 
-> 最后更新：2026-04-05（Schema Signal Patch 收尾）  
+> 最后更新：2026-04-12（DevFlow Enforcer Phase 1 收尾）  
 > 用途：记录已讨论但暂缓、以及候选评估的补强项。不是执行计划，是决策记录。  
 > 新增/变更规则：每次补强结束后更新，字段必须完整（priority / status / reason_deferred / complexity_budget_risk / truth_source_risk / next_trigger）。
 
@@ -16,10 +16,14 @@
 | `debug_closure` | 2026-04-05 | change-package 条件块，触发条件：task_type in [bugfix, hotfix]。closure check 而非 investigation 协议，4 个固定字段封顶 |
 | `verification_boundary` | 2026-04-05 | change-package 条件块，触发条件：execution_plan 有 host_target 非空 / cloud_validation_required: true / delivery_readiness 存在。Gate 3 汇总声明，≤3 条/≤15 字硬约束 |
 
+| DevFlow Enforcer Phase 1 | 2026-04-12 | Hook 路由器（`scripts/devflow-enforcer.mjs`）通过 Cowork PreToolUse/UserPromptSubmit hook 自动触发 devflow-gate.mjs 5 个 action。6 个验证用例全通过。已知边界：continuation 存在性检查，不校验 type 兼容性 |
+
 **观察重点**：
 - `completion_note` 是否出现超长写法（>2 句）
 - `verification_boundary` 数组是否有膨胀倾向（条目数 > 3）
 - `debug_closure` 对 FSD 的认知负担是否在可接受范围内
+- Enforcer deny/allow 比例是否合理，是否出现误拦（非 DevFlow 文件被拦截）
+- continuation_required deny 是否在正确场景触发（Gate 3 后且无 continuation 时才触发）
 
 ---
 
@@ -52,6 +56,7 @@
 | 条件化 Gate 检查 | P2 | candidate | 让 review-only / handoff-only 任务跳过不适用的 Gate 检查项 | Gate 脚本（读取 task_focus 做条件跳过） | 无 | task_focus 稳定后配套实现 |
 | Gate 2 语义补强（design_direction_summary） | P2 | candidate | 让 frontend-design 在产出里加一句话方向总结，Gate 2 自然呈现而非新增决策字段 | 子 Skill（frontend-design 输出 +1 字段） | 无 | 多次出现设计方向在 Gate 2 后被推翻时 |
 | change-audit / side-effect audit 模板化 | P1 | candidate | 把每轮补强前的 3 维复杂度审计（ORC/子 Skill/Schema）固化为轻量检查清单 | 参考文档（reference/ 加 1 个模板文件） | 无 | 下次讨论新补强项时直接用 |
+| DevFlow Enforcer Phase 2：continuation type 兼容性校验 | P2 | candidate | NON-CODE / RECORD-STOP 类型的 continuation 不应允许 project_path 源码写入；Phase 1 只校验存在性，不校验类型。需读取 `latestContinuation().type` 并按类型判断写入权限 | enforcer（`scripts/devflow-enforcer.mjs` 1 处修改） | 无 | 观察到 NON-CODE continuation 后仍有源码写入 deny 未触发时 |
 | host-platform 语义整合（`verification_boundary` + `host_platform_context` 对齐） | P2 | candidate | 两个字段目前语义邻近但不冲突，长期需要明确边界 | Schema（注释说明，不改字段） | 低（有 verification_boundary 触发条件设计说明兜底） | 出现"不知道该填哪个"的实际混淆时 |
 
 ---
