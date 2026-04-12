@@ -78,6 +78,7 @@ Gate 展示前 → 执行 pre-gate self-check（attempt_seq=1）
 | PG3-11 | events.jsonl 含 `skill_dispatched(fsd)` | CHECK-16 | BLOCK |
 | PG3-12 | **（条件）** 若 task scope 承诺 deploy / publish / public access：change-package 含 `delivery_readiness` 字段；`delivery_readiness.verification.typecheck ≠ "fail"`；`delivery_readiness.verification.build ≠ "fail"`；`delivery_readiness.blockers` 为空 | — | BLOCK |
 | PG3-13 | **（条件）** 若 task scope 承诺 deploy / publish / public access，且项目存在可运行 build/typecheck 路径（package.json 含 build/typecheck script 或 tsconfig.json 存在）：`delivery_readiness.verification.typecheck ≠ "not_run"`；`delivery_readiness.verification.build ≠ "not_run"`。不适用：纯静态文件部署或无 build step 项目（可标 `"n/a"`） | — | BLOCK |
+| PG3-14 | **（条件）** 若 handoff-packet / implementation-scope 中 `project_design_context.must_read_refs` 非空（即项目有设计约束且已传入 FSD）：change-package 含 `design_consumption_receipt` 块，且至少 1 条 ref 的 `status = "aligned"`。缺失 receipt 或全部 `not_found` → BLOCK。若 must_read_refs 为空或不存在 → 不检查。若 ORC 未传 must_read_refs 但 repo 中可机械发现设计文件（`{project_path}/DESIGN-SPEC.md` 或 `{project_path}/design/` 存在）→ WARN（提醒设计上下文未进入 FSD 消费链） | — | BLOCK / WARN |
 
 ---
 

@@ -95,6 +95,31 @@ fsd 必须显式填写此字段。满足以下任一条件 → `true`：
 
 非 canonical 名称 → D.1 NORMAL 判定视为字段缺失 → INCOMPLETE。
 
+## design_consumption_receipt（设计消费回执）
+
+**触发条件**：handoff-packet `project_design_context.must_read_refs` 非空。
+must_read_refs 为空或 project_design_context 省略 → 省略此块。
+
+```yaml
+design_consumption_receipt:
+  - ref: "{设计文件路径}"
+    source: "handoff" | "discovery"    # handoff = ORC 在 must_read_refs 中传入；discovery = FSD bounded discovery 发现
+    status: "aligned" | "not_applicable" | "not_found" | "conflict"
+    key_constraints: "{从文档中提取的关键约束，≤ 2 句}"
+    conflict_detail: ""                # 仅 status=conflict 时填写——哪条规范与实现需求冲突、如何处理
+```
+
+**status 定义**：
+- `aligned`：已读取，实现遵守文档中的规范
+- `not_applicable`：已读取，但文档内容与当前 scope 无关
+- `not_found`：文件路径由 ORC 传入但实际不存在于 repo 中
+- `conflict`：已读取，但实现需求与文档规范存在冲突，deviation 写入 conflict_detail
+
+**消费链**：
+- **FSD** 在 Step 1a 填写此块 → **code-reviewer** 在 Layer 5b 验证 receipt（逐条检查 status + key_constraints 是否合理）→ **Gate 3 pre-gate check** PG3-14 结构验证（must_read_refs 非空时 receipt 必须存在且含至少 1 个 `aligned`，否则 BLOCK）
+
+---
+
 ## verification_boundary（Schema Signal Patch 新增）
 
 **触发条件**（满足任一即条件必填）：

@@ -228,6 +228,26 @@ Verdict floor 高于 Layer 1-5 独立判定时取 floor。
 
 **不检查**：内容本身的准确性（那是产品层面的问题，不是 code review 的职责）。
 
+### Layer 5b：Design Consumption Receipt 验证（must_read_refs 非空时必检）
+
+⚠️ 仅当 handoff-packet `project_design_context.must_read_refs` 非空时执行。must_read_refs 为空或不存在 → 跳过。
+
+**前置**：检查 change-package 是否包含 `design_consumption_receipt` 块。
+- 缺失 → **P1 finding**（"must_read_refs 非空但 FSD 未输出设计消费回执"）
+
+**逐条检查 receipt：**
+- 每个 ref 的 `status` 是否合理？（`not_found` + `not_applicable` 占全部 = 疑似未真正阅读）
+- `key_constraints` 是否为空占位？（如"无"或单个字→ P2 finding）
+- `status: aligned` 的 ref 所声称的约束是否在代码中得到体现？
+  - 抽检：新页面是否使用了 page-patterns 中声称的容器模式（SectionCard 等）
+  - 抽检：Token 是否来自 CSS 变量 / design-spec 而非硬编码
+  - 抽检：中文 label/caption 是否错用英文排版（`uppercase` / `tracking-wide` / `letter-spacing`）
+- `status: conflict` 是否有 `conflict_detail`？detail 是否说明了 deviation 理由？
+
+**产出**：在 `contracts_checked` 中增加一条 `design-consumption-receipt` 条目，result 为 `aligned` / `deviated` / `no_contract_available`。
+
+**不检查**：具体像素值是否精确（那是 consistency-audit 的职责）。只检查"设计规范是否被消费"和"消费回执是否可信"。
+
 ### V4.3 强化：基于 change-package 审查
 
 ⚠️ **你必须基于 change-package（而非只看代码文件）做审查。** handoff-packet 中的 `change_package_ref` 是你的主要审查对象引用。`change-package` 中的 `upstream_contract_checks` 和 `unresolved_risks` 是你必须验证的关键字段。如果 change-package 不存在于你的 handoff-packet 中 → 在 review report 的 `missing_artifacts` 字段中声明。

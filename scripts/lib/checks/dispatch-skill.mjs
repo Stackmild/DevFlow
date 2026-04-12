@@ -211,6 +211,45 @@ export function check(taskDir, skill, phase, { events, warnings: readWarnings })
     }
   }
 
+  // --- Check 3: Design refs awareness for FSD dispatch (two-stage trigger) ---
+  // Stage 1: scope mentions UI content.
+  // Stage 2: project has design files (DESIGN-SPEC.md or design/ dir) but scope lacks a
+  //          "设计规范参考" section — meaning design context won't reach FSD.
+  // Does NOT fire for projects without design files → no false positives on design-less repos.
+  // Severity: WARN (dispatch not blocked; ORC can still add refs to handoff before spawning FSD).
+  if (skill === 'full-stack-developer' && violations.length === 0) {
+    const scopeFiles = existsSync(join(taskDir, 'artifacts'))
+      ? readdirSync(join(taskDir, 'artifacts')).filter(f => /^implementation-scope.*\.md$/.test(f))
+      : [];
+    if (scopeFiles.length > 0) {
+      try {
+        const scopeContent = readFileSync(join(taskDir, 'artifacts', scopeFiles[0]), 'utf8');
+        const mentionsUI = /front.?end|前端|UI|页面|component|组件|css|style|tailwind/i.test(scopeContent);
+        const hasDesignRefSection = /设计规范参考|must_read_refs|DESIGN.SPEC/i.test(scopeContent);
+        if (mentionsUI && !hasDesignRefSection) {
+          // Stage 2: bounded discovery — check if project actually has design files
+          let projectPath = null;
+          const taskYaml = join(taskDir, 'task.yaml');
+          if (existsSync(taskYaml)) {
+            const tc = readFileSync(taskYaml, 'utf8');
+            const ppMatch = tc.match(/project_path:\s*["']?([^\n"']+)/);
+            if (ppMatch) projectPath = ppMatch[1].trim();
+          }
+          if (projectPath && (existsSync(join(projectPath, 'DESIGN-SPEC.md')) || existsSync(join(projectPath, 'design')))) {
+            warnings.push(
+              'implementation-scope mentions UI content and project has design files (DESIGN-SPEC.md / design/), ' +
+              'but scope has no "设计规范参考" section — FSD will lack design context. ' +
+              'Ensure handoff includes project_design_context.must_read_refs ' +
+              '(PFL-029: FSD ignored 9 design files in amhub-ac-v22 → 13+ post-Gate3 fixes)'
+            );
+          }
+        } else if (mentionsUI && hasDesignRefSection) {
+          checksPass.push('design_refs_in_scope');
+        }
+      } catch { /* non-fatal — scope read failure does not block dispatch */ }
+    }
+  }
+
   const allowed = violations.length === 0;
   return {
     allowed,

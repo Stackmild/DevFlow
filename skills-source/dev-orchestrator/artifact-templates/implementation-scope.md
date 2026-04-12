@@ -3,6 +3,17 @@
 
 # Implementation Scope
 
+## 设计规范参考（UI scope 时必填）
+
+<!-- planner 在产出 implementation-scope 时，从 handoff-packet project_design_context.must_read_refs 
+     抄入已存在的文件路径。FSD 在 Step 1a 逐个阅读这些文件，并在 change-package 输出消费回执。
+     如 project_design_context 无 must_read_refs 或为空，标注"项目无设计约束"并删除此表。 -->
+
+| 文件 | 路径 | FSD 需关注的内容 |
+|------|------|-----------------|
+| {DESIGN-SPEC.md} | {project_path}/DESIGN-SPEC.md | {token 体系、页面规范} |
+| {implementation-governance.md} | {project_path}/design/implementation-governance.md | {开发自检规则} |
+
 ## 基于设计 artifact 的实现范围
 
 ### 采纳（直接实现）

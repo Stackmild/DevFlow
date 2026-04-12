@@ -178,6 +178,40 @@ execution_plan:
 
 如果任何一个 artifact 缺失，在 `### Missing Inputs` 中标注。
 
+### Step 1a：读取项目设计规范（must_read_refs 非空时强制）
+
+> **触发条件**：handoff-packet `project_design_context.must_read_refs` 非空，或 implementation-scope "设计规范参考"节列出了文件。
+> 两者都为空或不存在 → 跳过此步，在 Implementation Plan 中标注 `### Design Spec: 无设计约束`。
+
+**读取优先级（严格按此顺序）：**
+1. 先读 handoff / implementation-scope 中**显式传入的 refs**
+2. 仅当 refs 缺失时，做 **bounded discovery**——只在以下白名单路径查找：
+   `{project_path}/DESIGN-SPEC.md`、`{project_path}/design/*.md`、`{project_path}/client/src/tailwind-theme.css`
+3. 不允许在整个 repo 中自由搜索文档
+
+**逐个读取找到的文件，提取：**
+- Token 体系（圆角、间距、字体、颜色 CSS 变量名）
+- 当前页面属于哪种 page pattern（Dashboard / Collection / Detail 等）
+- 必须使用的共享容器组件（SectionCard、PageHeader 等）
+- 中文排版专项规则（caption 字号/字重、禁止 `uppercase`/`tracking-wide` 用于中文）
+- 禁止的开发方式
+
+**输出 Design Consumption Receipt**（写入 change-package `design_consumption_receipt`）：
+
+```yaml
+design_consumption_receipt:
+  - ref: "DESIGN-SPEC.md"
+    source: "handoff"                  # handoff = ORC 显式传入 | discovery = FSD 在白名单路径发现
+    status: "aligned"                  # aligned | not_applicable | not_found | conflict
+    key_constraints: "token: --heading-card=20px, --radius-inset=6px; 中文 caption 规范"
+  - ref: "design/page-patterns.md"
+    source: "handoff"
+    status: "aligned"
+    key_constraints: "页面类型判定为 Collection Page, 需套 SectionCard"
+```
+
+> ⚠️ 只读取已存在的文件。不创建或猜测设计规范。`not_found` 是合法状态（文件路径由 ORC 传入但实际不存在）。
+
 ### Step 2：规划实现范围
 
 **在写代码前，先输出一个简短的实现计划**（≤20 行）：
@@ -225,6 +259,10 @@ execution_plan:
 - [ ] 组件命名与 component-spec 一致
 - [ ] 状态管理与 interaction-spec 一致
 - [ ] Design tokens 与 design-spec 一致
+- [ ] **（must_read_refs 非空时）** change-package 包含 `design_consumption_receipt`，每个 ref 有明确 status
+- [ ] **（must_read_refs 非空时）** 新页面套用了 page-patterns 中的正确容器模式（SectionCard 等）
+- [ ] **（must_read_refs 非空时）** Token 值来自 CSS 变量 / 设计规范，无硬编码色值/尺寸/圆角
+- [ ] **（must_read_refs 非空时）** 中文 caption/label 无英文 `uppercase` / `tracking-wide` / `letter-spacing`
 - [ ] `mode: handoff` 的 scope 只产出了 handoff 文件
 - [ ] 硬上线限制已正确标注
 

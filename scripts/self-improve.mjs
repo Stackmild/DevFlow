@@ -20,7 +20,12 @@ import { spawnSync } from 'child_process';
 
 const SCRIPT_DIR    = decodeURIComponent(new URL('.', import.meta.url).pathname);
 const DEVFLOW_ROOT  = resolve(SCRIPT_DIR, '..');
-const STATE_DIR     = join(DEVFLOW_ROOT, 'orchestrator-state');
+
+// --state-dir: override orchestrator-state location for external repos
+const stateDirIdx   = process.argv.indexOf('--state-dir');
+const STATE_DIR     = stateDirIdx >= 0
+  ? resolve(process.argv[stateDirIdx + 1])
+  : join(DEVFLOW_ROOT, 'orchestrator-state');
 const DERIVED_DIR   = join(STATE_DIR, '_derived');
 const CONV_DIR      = join(DERIVED_DIR, 'conversations');
 const CONV_INDEX    = join(CONV_DIR, 'extraction-index.json');
