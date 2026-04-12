@@ -1,7 +1,7 @@
 // state-reader.mjs — Read events.jsonl + scan decisions/ + issues/ for devflow-gate
 // Zero npm dependencies. Pure node:fs + node:path.
 
-import { readFileSync, existsSync, readdirSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -146,4 +146,136 @@ export function scanPermits(taskDir) {
   const dir = join(taskDir, '.permits');
   if (!existsSync(dir)) return [];
   return readdirSync(dir).filter(f => f.endsWith('.json'));
+}
+
+// ── Enforcer helpers (devflow-enforcer.mjs) ─────────────────────────────────
+
+/**
+ * Parse flat YAML scalars from text content. Zero dependencies.
+ * Only extracts top-level `key: value` pairs (no nested blocks).
+ * Supports: underscore keys, hyphen values, quoted values, inline comments.
+ * Indented lines are silently skipped — they belong to nested blocks.
+ */
+export function parseSimpleYaml(text) {
+  const map = {};
+  for (const line of text.split('\n')) {
+    if (/^\s/.test(line) || !line.includes(':')) continue;
+    const idx = line.indexOf(':');
+    const key = line.slice(0, idx).trim();
+    if (!/^[\w][\w-]*$/.test(key)) continue;
+    let val = line.slice(idx + 1).trim();
+    // Strip inline comment (but not inside quotes)
+    if (!val.startsWith('"') && !val.startsWith("'")) {
+      const hashIdx = val.indexOf('#');
+      if (hashIdx >= 0) val = val.slice(0, hashIdx).trim();
+    }
+    val = val.replace(/^["']|["']$/g, '');
+    map[key] = val;
+  }
+  return map;
+}
+
+/**
+ * Read and parse a task.yaml file.
+ * Returns parsed flat fields or null if file doesn't exist.
+ */
+export function readTaskYaml(taskDir) {
+  const p = join(taskDir, 'task.yaml');
+  if (!existsSync(p)) return null;
+  return parseSimpleYaml(readFileSync(p, 'utf8'));
+}
+
+/**
+ * Check if Gate 3 ACCEPT is recorded for a task.
+ */
+export function hasGate3Accept(taskDir) {
+  return decisionExists(taskDir, 'gate-3.yaml') || decisionExists(taskDir, 'gate-b.yaml');
+}
+
+/**
+ * Check if at least one continuation decision file exists.
+ */
+export function hasContinuationDecision(taskDir) {
+  const dir = join(taskDir, 'decisions');
+  if (!existsSync(dir)) return false;
+  return readdirSync(dir).some(f => f.startsWith('continuation-') && f.endsWith('.yaml'));
+}
+
+/**
+ * Resolve active task from a file path being written.
+ * 4-tier priority: path extract → project_path match → env var → null.
+ * P4 (global scan) is NOT used here — only for UserPromptSubmit.
+ *
+ * @param {string} filePath - Absolute path of the file being written
+ * @param {string} stateDir - Absolute path to orchestrator-state/
+ * @returns {{ id: string, dir: string, source: string } | null}
+ */
+export function resolveTaskFromPath(filePath, stateDir) {
+  if (!existsSync(stateDir)) return null;
+
+  // P1: Extract task_id from orchestrator-state/{task_id}/...
+  const osMatch = filePath.match(/orchestrator-state\/([^/]+)\//);
+  if (osMatch) {
+    const taskDir = join(stateDir, osMatch[1]);
+    if (existsSync(join(taskDir, 'task.yaml'))) {
+      return { id: osMatch[1], dir: taskDir, source: 'path_extract' };
+    }
+  }
+
+  // P2: Match file path against task.yaml project_path
+  if (!filePath.includes('orchestrator-state/')) {
+    const candidates = [];
+    for (const tid of readdirSync(stateDir)) {
+      if (tid === '_derived' || tid.startsWith('.')) continue;
+      const tyPath = join(stateDir, tid, 'task.yaml');
+      if (!existsSync(tyPath)) continue;
+      const task = parseSimpleYaml(readFileSync(tyPath, 'utf8'));
+      if (task.project_path && filePath.startsWith(task.project_path)) {
+        let mtime = 0;
+        try { mtime = statSync(tyPath).mtimeMs; } catch { /* ignore */ }
+        candidates.push({ id: tid, dir: join(stateDir, tid), status: task.status || '', mtime });
+      }
+    }
+    if (candidates.length === 1) return { ...candidates[0], source: 'project_path' };
+    if (candidates.length > 1) {
+      candidates.sort((a, b) => {
+        if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
+        if (b.status === 'in_progress' && a.status !== 'in_progress') return 1;
+        return b.mtime - a.mtime;
+      });
+      return { ...candidates[0], source: 'project_path_tiebreak' };
+    }
+  }
+
+  // P3: Environment variable
+  const envTaskDir = process.env.DEVFLOW_TASK_DIR;
+  if (envTaskDir && existsSync(join(envTaskDir, 'task.yaml'))) {
+    const tid = envTaskDir.split('/').filter(Boolean).pop();
+    return { id: tid, dir: envTaskDir, source: 'env_var' };
+  }
+
+  return null;
+}
+
+/**
+ * Find the most recently active in_progress task via global scan.
+ * Only for UserPromptSubmit hook — NOT for PreToolUse.
+ */
+export function resolveTaskGlobalScan(stateDir) {
+  if (!existsSync(stateDir)) return null;
+  const candidates = [];
+  for (const tid of readdirSync(stateDir)) {
+    if (tid === '_derived' || tid.startsWith('.')) continue;
+    const tyPath = join(stateDir, tid, 'task.yaml');
+    if (!existsSync(tyPath)) continue;
+    const task = parseSimpleYaml(readFileSync(tyPath, 'utf8'));
+    if (task.status === 'in_progress') {
+      let mtime = 0;
+      try { mtime = statSync(tyPath).mtimeMs; } catch { /* ignore */ }
+      candidates.push({ id: tid, dir: join(stateDir, tid), mtime });
+    }
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => b.mtime - a.mtime);
+  return { ...candidates[0], source: 'global_scan' };
 }
