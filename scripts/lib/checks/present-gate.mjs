@@ -4,7 +4,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { decisionExists, scanPermits } from '../state-reader.mjs';
+import { decisionExists, scanPermits, readTaskYaml } from '../state-reader.mjs';
 
 // Canonical reviewer skill names — used for Gate 3 report glob AND permit checks.
 // Only these skills produce *-report.yaml artifacts per review-report.md schema.
@@ -52,30 +52,56 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
     checksPass.push('pre_gate_check_exists');
   }
 
+  const taskYaml = readTaskYaml(taskDir) || {};
+
   // --- Check 2: Gate-specific required artifacts ---
   const artifactsDir = join(taskDir, 'artifacts');
   const artifactsExist = existsSync(artifactsDir);
 
   if (gateNum === '1') {
     // Gate 1: product-spec.md must exist
-    const hasSpec = artifactsExist && existsSync(join(artifactsDir, 'product-spec.md'));
+    const hasSpec = artifactsExist && existsSync(join(artifactsDir, 'product-spec.md')) || Boolean(taskYaml.product_spec_ready);
     if (!hasSpec) {
       violations.push({ check: 'gate_artifact', severity: 'BLOCK', detail: 'artifacts/product-spec.md not found — PM must produce product-spec before Gate 1' });
     } else {
       checksPass.push('gate_artifact_product_spec');
     }
+    const hasBrief = artifactsExist && existsSync(join(artifactsDir, 'task-brief.md')) || Boolean(taskYaml.task_brief_ready);
+    if (!hasBrief) {
+      violations.push({ check: 'gate_artifact_task_brief', severity: 'BLOCK', detail: 'artifacts/task-brief.md not found — task-brief must exist before Gate 1' });
+    } else {
+      checksPass.push('gate_artifact_task_brief');
+    }
   } else if (gateNum === '2') {
     // Gate 2: implementation-scope*.md OR gate-2-skip.yaml
-    const hasScope = artifactsExist && readdirSync(artifactsDir).some(f => /^implementation-scope.*\.md$/.test(f));
+    const hasScope = artifactsExist && readdirSync(artifactsDir).some(f => /^implementation-scope.*\.md$/.test(f)) || Boolean(taskYaml.implementation_scope_ready);
     const hasSkip = decisionExists(taskDir, 'gate-2-skip.yaml');
     if (!hasScope && !hasSkip) {
       violations.push({ check: 'gate_artifact', severity: 'BLOCK', detail: 'Neither implementation-scope*.md in artifacts/ nor gate-2-skip.yaml in decisions/ found' });
     } else {
       checksPass.push('gate_artifact_scope_or_skip');
     }
+    const hasProductSpec = artifactsExist && existsSync(join(artifactsDir, 'product-spec.md')) || Boolean(taskYaml.product_spec_ready);
+    if (!hasProductSpec) {
+      violations.push({ check: 'gate_artifact_product_spec', severity: 'BLOCK', detail: 'artifacts/product-spec.md not found — product-spec must exist before Gate 2' });
+    } else {
+      checksPass.push('gate_artifact_product_spec');
+    }
   } else if (gateNum === '3') {
-    // Gate 3: change-package-*.yaml ≥1
-    const hasCP = artifactsExist && readdirSync(artifactsDir).some(f => /^change-package-.*\.yaml$/.test(f));
+    // Gate 3: implementation-scope, design context, change-package, and reviewer report
+    const hasScope = artifactsExist && readdirSync(artifactsDir).some(f => /^implementation-scope.*\.md$/.test(f)) || Boolean(taskYaml.implementation_scope_ready);
+    if (!hasScope) {
+      violations.push({ check: 'gate_artifact_scope', severity: 'BLOCK', detail: 'implementation-scope artifact not found — Gate 3 requires implementation-scope context before presentation' });
+    } else {
+      checksPass.push('gate_artifact_scope');
+    }
+    const hasDesign = artifactsExist && (existsSync(join(artifactsDir, 'DESIGN-SPEC.md')) || existsSync(join(artifactsDir, 'design-spec.md'))) || Boolean(taskYaml.design_spec_ready);
+    if (!hasDesign) {
+      warnings.push('design spec not found — Gate 3 can proceed, but design context may be incomplete');
+    } else {
+      checksPass.push('gate_artifact_design_spec');
+    }
+    const hasCP = artifactsExist && readdirSync(artifactsDir).some(f => /^change-package-.*\.yaml$/.test(f)) || Boolean(taskYaml.change_package_ready);
     if (!hasCP) {
       violations.push({ check: 'gate_artifact_change_package', severity: 'BLOCK', detail: 'No change-package-*.yaml found in artifacts/' });
     } else {

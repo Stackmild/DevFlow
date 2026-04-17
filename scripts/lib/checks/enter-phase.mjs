@@ -1,7 +1,7 @@
 // enter-phase.mjs — Gate check: can ORC enter this phase?
 // Prevents: phase skip (V2.1 disaster)
 
-import { findEvents, currentPhaseFromEvents, decisionExists } from '../state-reader.mjs';
+import { findEvents, currentPhaseFromEvents, decisionExists, readTaskYaml } from '../state-reader.mjs';
 
 const PHASE_ORDER = { phase_a: 1, phase_b: 2, phase_c: 3, phase_d: 4, phase_f: 5 };
 const PREDECESSOR = { phase_b: 'phase_a', phase_c: 'phase_b', phase_d: 'phase_c', phase_f: 'phase_d' };
@@ -61,6 +61,46 @@ export function check(taskDir, targetPhase, { events, corruptLineCount, warnings
     }
   } else {
     checksPass.push('gate_exists'); // phase_a/phase_b don't need prior gate
+  }
+
+  // --- Check 3.5: phase-specific artifact prerequisites (hard block) ---
+  const artifacts = findEvents(events, 'artifact_written');
+  const taskYaml = readTaskYaml(taskDir) || {};
+  if (phase === 'phase_b') {
+    const hasTaskBrief = decisionExists(taskDir, 'task-brief.md') || artifacts.some(a => a.payload?.artifact === 'task-brief.md') || Boolean(taskYaml.task_brief_ready);
+    if (!hasTaskBrief) {
+      violations.push({ check: 'phase_b_artifact', severity: 'BLOCK', detail: 'task-brief artifact not found — Phase B must produce task-brief before entering later phases' });
+    } else {
+      checksPass.push('phase_b_artifact');
+    }
+  }
+  if (phase === 'phase_c') {
+    const hasProductSpec = decisionExists(taskDir, 'product-spec.md') || artifacts.some(a => a.payload?.artifact === 'product-spec.md') || Boolean(taskYaml.product_spec_ready);
+    if (!hasProductSpec) {
+      violations.push({ check: 'phase_c_artifact', severity: 'BLOCK', detail: 'product-spec artifact not found — Phase C requires product-spec before design work' });
+    } else {
+      checksPass.push('phase_c_artifact');
+    }
+    const hasDesignSpec = decisionExists(taskDir, 'DESIGN-SPEC.md') || decisionExists(taskDir, 'design-spec.md') || Boolean(taskYaml.design_spec_ready);
+    if (!hasDesignSpec) {
+      warnings.push('design spec not found — Phase C can proceed, but design context may be incomplete');
+    } else {
+      checksPass.push('phase_c_design_spec');
+    }
+  }
+  if (phase === 'phase_d') {
+    const hasScope = decisionExists(taskDir, 'implementation-scope.md') || artifacts.some(a => /^implementation-scope.*\.md$/.test(a.payload?.artifact || '')) || Boolean(taskYaml.implementation_scope_ready);
+    if (!hasScope) {
+      violations.push({ check: 'phase_d_artifact', severity: 'BLOCK', detail: 'implementation-scope artifact not found — Phase D requires implementation-scope before execution' });
+    } else {
+      checksPass.push('phase_d_artifact');
+    }
+    const hasChangePackage = decisionExists(taskDir, 'change-package.yaml') || artifacts.some(a => /^change-package-.*\.yaml$/.test(a.payload?.artifact || '')) || Boolean(taskYaml.change_package_ready);
+    if (!hasChangePackage) {
+      violations.push({ check: 'phase_d_change_package', severity: 'BLOCK', detail: 'change-package artifact not found — Phase D requires change-package before execution' });
+    } else {
+      checksPass.push('phase_d_change_package');
+    }
   }
 
   // --- Check 4: No regression (unless legal backflow) ---

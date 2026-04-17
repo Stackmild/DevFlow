@@ -108,6 +108,18 @@ V6.0 将 `devflow-gate` 薄控制层从 3-action 扩展到 **5-action**：在 Ph
 
 **Phase 1 Enforcer（2026-04-12）**：`scripts/devflow-enforcer.mjs` 作为 Cowork PreToolUse / UserPromptSubmit hook，把 devflow-gate.mjs 的 5 个 action 从"ORC 主动调用"升级为**文件写入时自动触发**，关键拦截点（gate decision 写入、task 完成、handoff dispatch、phase 进入、Gate 3 后写入）不再依赖 LLM 记忆。
 
+**当前已硬化的门禁**：
+- `enter_phase`：阶段顺序 + 阶段前置 artifact（Phase B task-brief、Phase C product-spec、Phase D implementation-scope/change-package）
+- `present_gate`：Gate 1/2/3 前置决策 + 必需 artifact + 上游 permit backpressure
+- `complete_task`：Gate 3、Phase D/F events、open blockers、permit/event 一致性
+- `dispatch_skill`：稳定 prerequisite 硬拦；设计引用缺失仍保留 warning，不升为 block
+
+**设计与变更说明**：
+- `devflow-gate` 是约束判断层，`devflow-enforcer` 是写入时自动触发的 hook 路由层
+- 阶段顺序、Gate 展示、任务完成和关键前置产物缺失现在都能被机械拦住
+- 设计引用缺失仍保持 warning，不升级为 hard block
+- `.permits/` 是可选证据链；Gate / complete-task 会使用它做 backpressure 和一致性检查
+
 ---
 
 ### 改进 DevFlow

@@ -60,6 +60,11 @@ export function check(taskDir, { events, corruptLineCount, warnings: readWarning
   }
 
   // --- Check 6 (V6.0): present_gate permit for Gate 3 ---
+  // This is the same hard blocker used to ensure Gate 3 was actually presented before closeout.
+  // If Gate 3 decision exists but permit is missing, we still degrade to WARN to preserve legacy tasks.
+  // New tasks should expect this path to be present; legacy compatibility is the only reason it is not BLOCK.
+
+  // --- Check 6 (V6.0): present_gate permit for Gate 3 ---
   // Backward-compat design: if gate-3.yaml/gate-b.yaml exists but no present_gate permit,
   // this is either:
   //   (a) V5.0 legacy task — Gate 3 completed before present_gate gate was introduced
@@ -90,19 +95,55 @@ export function check(taskDir, { events, corruptLineCount, warnings: readWarning
     checksPass.push('present_gate_permit');
   }
 
+  // --- Check 6.5 (hard closeout) : phase_entered(phase_f) and gate-3 present must both exist ---
+  // This already blocks fake closeout, but we also require a present_gate permit count in new tasks.
+  // Legacy compatibility remains only because some older tasks predate the permit system.
+  const phaseFEnteredHard = findEvents(events, 'phase_entered', { phase: 'phase_f' }).length > 0;
+  const gate3PresentHard = findEvents(events, 'gate_decision', { gate: '3' }).length > 0 || findEvents(events, 'gate_decision', { gate: 'b' }).length > 0;
+  if (!phaseFEnteredHard) {
+    violations.push({ check: 'phase_f_entered_hard', severity: 'BLOCK', detail: 'phase_entered(phase_f) event not found in events.jsonl' });
+  } else {
+    checksPass.push('phase_f_entered_hard');
+  }
+  if (!gate3PresentHard) {
+    violations.push({ check: 'gate3_decision_event', severity: 'BLOCK', detail: 'gate_decision(gate 3) event not found in events.jsonl' });
+  } else {
+    checksPass.push('gate3_decision_event');
+  }
+
+  // --- Check 6.6: permit/event consistency for closeout ---
+  const dispatchPermits = permits.filter(p => p.startsWith('dispatch_skill-'));
+  const dispatchEvents = events.filter(e => e.event_type === 'skill_dispatched');
+  if (dispatchPermits.length < dispatchEvents.length) {
+    violations.push({ check: 'dispatch_permit_count', severity: 'BLOCK', detail: `dispatch_skill permits (${dispatchPermits.length}) < skill_dispatched events (${dispatchEvents.length}) — some dispatches bypassed the gate or permit write failed` });
+  } else {
+    checksPass.push('dispatch_permit_count');
+  }
+  const presentGatePermits = permits.filter(p => p.startsWith('present_gate-'));
+  if (presentGatePermits.length === 0 && gate3Exists) {
+    warnings.push('present_gate permit for Gate 3 not found in .permits/ — legacy task or permit write failure');
+  } else if (presentGatePermits.length > 0) {
+    checksPass.push('present_gate_permit_count');
+  }
+
   // --- Check 7 (V6.0): dispatch permit count vs skill_dispatched events (WARN only) ---
   // Flags cases where skill_dispatched events outnumber dispatch_skill permits,
   // indicating some dispatches bypassed the gate. WARN (not BLOCK) because permit
   // files could be missing due to .permits/ write failure (non-blocking per V5.0 design).
-  const dispatchPermits = permits.filter(p => p.startsWith('dispatch_skill-'));
-  const dispatchEvents = events.filter(e => e.event_type === 'skill_dispatched');
   if (dispatchPermits.length < dispatchEvents.length) {
     warnings.push(
       `dispatch_skill permits (${dispatchPermits.length}) < skill_dispatched events (${dispatchEvents.length}) — ` +
       'some dispatches may have bypassed the gate or permit write failed'
     );
   } else {
-    checksPass.push('dispatch_permit_count');
+    checksPass.push('dispatch_permit_count_warn');
+  }
+
+  // --- Check 8: present_gate/event consistency (hard when closeout is attempted) ---
+  if (gate3Exists && presentGatePermits.length === 0) {
+    violations.push({ check: 'present_gate_permit_consistency', severity: 'BLOCK', detail: 'Gate 3 decision exists but no present_gate permit found in .permits/ — present_gate must be executed through devflow-gate' });
+  } else if (presentGatePermits.length > 0) {
+    checksPass.push('present_gate_permit_consistency');
   }
 
   const allowed = violations.length === 0;

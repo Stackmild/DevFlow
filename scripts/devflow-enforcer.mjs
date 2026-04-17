@@ -53,6 +53,10 @@ function output(obj) {
   process.exit(0);
 }
 
+function debug(message) {
+  return { systemMessage: `DevFlow Enforcer: ${message}` };
+}
+
 function deny(message) {
   output({
     hookSpecificOutput: {
@@ -145,7 +149,7 @@ function handlePreWrite(rawToolInput) {
 
   // Resolve task from file path (P1 → P2 → P3, no P4)
   const task = resolveTaskFromPath(filePath, STATE_DIR);
-  if (!task) return allow(); // Not a DevFlow-related write
+  if (!task) return debug(`no task matched for write path ${filePath}`); // Not a DevFlow-related write
 
   // ── 1B. project_path writes — hard deny after Gate 3 without continuation ──
   if (!filePath.includes('orchestrator-state/')) {
@@ -162,7 +166,7 @@ function handlePreWrite(rawToolInput) {
     // does not read continuation type and will allow the write.
     // Phase 2 TODO: read latestContinuation(task.dir).type and block incompatible writes
     // (NON-CODE / RECORD-STOP types should not allow project_path source writes).
-    return allow(); // Normal development or continuation exists
+    return debug(`continuation exists for ${task.id}, project write allowed`); // Normal development or continuation exists
   }
 
   // ── 1A. orchestrator-state/ writes ──
@@ -245,7 +249,7 @@ function handleUserPrompt() {
   const task = resolveTaskGlobalScan(STATE_DIR);
   if (!task) return allow();
   if (!hasGate3Accept(task.dir)) return allow();
-  if (hasContinuationDecision(task.dir)) return allow();
+  if (hasContinuationDecision(task.dir)) return debug(`user prompt observed; continuation already present for ${task.id}`);
 
   return info(
     `⚠️ DevFlow Enforcer: 任务 ${task.id} 已通过 Gate 3 ACCEPT。\n` +

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "node \"/Users/yfguo/Documents/资管文件/AI Incorporation/Development & Coding Workflow/scripts/devflow-enforcer.mjs\" --event PreToolUse"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "command": "node \"/Users/yfguo/Documents/资管文件/AI Incorporation/Development & Coding Workflow/scripts/devflow-enforcer.mjs\" --event user-prompt"
+      }
+    ]
+  }
+}

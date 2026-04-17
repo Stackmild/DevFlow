@@ -197,7 +197,7 @@ node scripts/devflow-gate.mjs enter_phase --task-dir orchestrator-state/{task_id
 
 ### DevFlow Enforcer Phase 1（Hook 自动执行层，2026-04-12）
 
-devflow-gate.mjs 的 5 个 action 已实现完整检查逻辑，但原先依赖 ORC 主动调用——context 膨胀或 compaction 信息损失时 enforcement 容易失败。Phase 1 通过 Cowork 宿主平台的 PreToolUse / UserPromptSubmit hook，把关键写入点改成自动拦截，不再依赖 LLM 记得调用。
+`devflow-enforcer.mjs` 通过 Cowork 的 PreToolUse / UserPromptSubmit hook 把关键写入点改成自动拦截，不再依赖 LLM 记得调用。它负责将写入事件路由到 `devflow-gate.mjs` 的对应 action，并在 Gate 3 后继续施加写入约束。
 
 `scripts/devflow-enforcer.mjs` 作为 hook 路由器，在以下写入前自动触发对应 gate action：
 
@@ -213,6 +213,12 @@ devflow-gate.mjs 的 5 个 action 已实现完整检查逻辑，但原先依赖 
 Active Task Resolution 使用 4 级优先级（path extract → project_path match → env var → global scan）。PreToolUse 不用 global scan（P4），避免误拦。
 
 **Phase 1 已知边界**：检查 continuation *存在性*，不检查 continuation type 与写入路径的兼容性（NON-CODE/RECORD-STOP 类型不应允许源码写入）。此细粒度校验留 Phase 2。
+
+**当前已硬化的门禁**：
+- `enter_phase`：阶段顺序 + 阶段前置 artifact（Phase B task-brief、Phase C product-spec、Phase D implementation-scope/change-package）
+- `present_gate`：Gate 1/2/3 前置决策 + 必需 artifact + 上游 permit backpressure
+- `complete_task`：Gate 3、Phase D/F events、open blockers、permit/event 一致性
+- `dispatch_skill`：稳定 prerequisite 硬拦；设计引用缺失仍保留 warning，不升为 block
 
 ## 两层持久化
 
