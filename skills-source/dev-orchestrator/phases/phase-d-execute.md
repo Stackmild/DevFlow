@@ -166,6 +166,7 @@ ALWAYS: code-reviewer（所有产出代码/配置变更的任务）
 
 IF change includes UI / 前端行为 / interaction 变化:
   + webapp-consistency-audit
+  + playwright-e2e-testing
 
 IF change includes data model / schema / API 变更:
   + pre-release-test-reviewer
@@ -174,7 +175,7 @@ IF change is pure bugfix / 小修复:
   code-reviewer only
 
 IF change is full feature with UI + data:
-  code-reviewer + webapp-consistency-audit + pre-release-test-reviewer
+  code-reviewer + webapp-consistency-audit + playwright-e2e-testing + pre-release-test-reviewer
 ```
 
 Reviewer Selector 结果写入 `decisions/routing-decision-D.yaml`。
@@ -319,7 +320,7 @@ degraded_review: false
 
 ⚠️ CONTINUITY: reviewer 返回后，到 Gate 3 展示必须连续完成（review report 写入 → issues 提取 → review-completeness-summary → pre-gate-check-3 → Gate 3 展示）。参见 `../protocols/write-through-actions.md §Sub-agent Return Continuity Protocol`。
 
-### D.2 Exit Condition（V4.1 重写）
+### D.2 Exit Condition（V4.1 重写，V4.7 playwright 补充）
 
 ```
 ⚠️ D.2 → D.3 Gate:
@@ -330,6 +331,7 @@ degraded_review: false
 - [ ] decisions/routing-decision-D.yaml 存在
 - [ ] EVENTS_REQUIRED（D.2）全部满足（含 artifact_consumed(change-package→reviewer)）
 - [ ] 如有 fallback：review_format_fallback 或 review_inline_fallback 事件已写入
+- [ ] 如 routing-decision-D 命中 rule_ui 且 skills 含 playwright-e2e-testing → e2e-visual-test-report.yaml 存在于 artifacts/
 - [ ] task.yaml live state 已更新（current_phase=phase_d_3）
 ```
 

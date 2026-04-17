@@ -115,7 +115,7 @@ Phase F: 收尾（known_gaps 归集 → ROADMAP/DEFERRED 回填 → state-audito
 | **Phase B** | `product-manager` | 问题分析、outcome 定义、Roadmap 绑定 |
 | **Phase C** | `web-app-architect` `backend-data-api` `webapp-interaction-designer` `frontend-design` | 按需调度，bugfix 可跳过 |
 | **Phase D.1** | `full-stack-developer` | 执行编码，产出 change-package（V5.0：新增 `completion_status` + 条件字段 `debug_closure` / `verification_boundary`） |
-| **Phase D.2** | `code-reviewer` + 条件审查员 | UI 改动加 `webapp-consistency-audit`，数据/API 改动加 `pre-release-test-reviewer` |
+| **Phase D.2** | `code-reviewer` + 条件审查员 | UI 改动加 `webapp-consistency-audit` + `playwright-e2e-testing`，数据/API 改动加 `pre-release-test-reviewer` |
 | **Phase F** | `state-auditor`（可选） | State Store 完整性审计 |
 
 ## 回流与修订机制
@@ -277,7 +277,7 @@ completion_note: ""       # ≤ 2 句，空 = 无补充
 
 **作用**：sub-agent 的 early-exit 信号。`blocked`/`needs_context` 时 Orchestrator 直接暂停，不再进行 artifact 完整性推断。`done`/`done_with_concerns` 时 Orchestrator 仍做 artifact 兜底检查。字段缺失时完全走现有逻辑（向后兼容）。
 
-**覆盖范围**：FSD（change-package）、code-reviewer、webapp-consistency-audit、pre-release-test-reviewer 的输出规范。phase-d-execute.md 的 D.1/D.2 Runtime Fallback 前加短路规则。
+**覆盖范围**：FSD（change-package）、code-reviewer、webapp-consistency-audit、pre-release-test-reviewer、playwright-e2e-testing 的输出规范。phase-d-execute.md 的 D.1/D.2 Runtime Fallback 前加短路规则。
 
 ### 2. `debug_closure`（change-package 条件字段）
 

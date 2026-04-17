@@ -816,9 +816,11 @@ orchestrator 必须读取 `../routing/phase-d-reviewer-selector.yaml` 执行 rev
 
 常规规则：
 - ALWAYS: code-reviewer
-- IF UI/interaction 变化: + webapp-consistency-audit
+- IF UI/interaction 变化: + webapp-consistency-audit + playwright-e2e-testing
 - IF data model/schema/API 变更: + pre-release-test-reviewer
 - IF pure bugfix: code-reviewer only
+
+> V1.1: rule_ui 升级为 skills 列表。UI/交互改动同时触发 webapp-consistency-audit（代码审计）和 playwright-e2e-testing（E2E 视觉+功能测试）。playwright-e2e-testing 产出 `e2e-visual-test-report.yaml`（非标准文件名，gate check 已适配）。
 
 ### 回流循环 + 三档修订制
 

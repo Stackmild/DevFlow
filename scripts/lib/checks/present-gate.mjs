@@ -14,11 +14,17 @@ const REVIEWER_SKILLS = [
   'code-reviewer',
   'webapp-consistency-audit',
   'pre-release-test-reviewer',
+  'playwright-e2e-testing',
 ];
 
 // Glob for review report artifacts: {reviewer}-report.yaml
+// playwright-e2e-testing uses a non-standard filename (e2e-visual-test-report.yaml)
+const REVIEWER_REPORT_ALIASES = {
+  'playwright-e2e-testing': 'e2e-visual-test-report.yaml',
+};
 function isReviewerReport(filename) {
-  return REVIEWER_SKILLS.some(skill => filename === `${skill}-report.yaml`);
+  if (REVIEWER_SKILLS.some(skill => filename === `${skill}-report.yaml`)) return true;
+  return Object.values(REVIEWER_REPORT_ALIASES).includes(filename);
 }
 
 export function check(taskDir, gate, { warnings: readWarnings }) {
@@ -198,12 +204,14 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
     }
 
     // --- Check 4 (Schema Signal Patch): Reviewer dispatch downgrade detection ---
-    // If routing-decision-D matched a rule that implies a reviewer,
-    // but that reviewer appears in skipped_reviewers without a formal skip decision,
+    // If routing-decision-D matched a rule that implies reviewers,
+    // but a reviewer appears in skipped_reviewers without a formal skip decision,
     // warn about manual dispatch downgrade (PFL-028: amhub-phase1-ia retrospective).
+    // V1.1: RULE_IMPLIES_REVIEWER upgraded to arrays (rule_ui now implies both
+    // webapp-consistency-audit and playwright-e2e-testing).
     const RULE_IMPLIES_REVIEWER = {
-      'rule_ui': 'webapp-consistency-audit',
-      'rule_data': 'pre-release-test-reviewer',
+      'rule_ui': ['webapp-consistency-audit', 'playwright-e2e-testing'],
+      'rule_data': ['pre-release-test-reviewer'],
     };
     const rdPath = join(taskDir, 'decisions', 'routing-decision-D.yaml');
     if (existsSync(rdPath)) {
@@ -212,11 +220,10 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
         const ruleMatch = rdContent.match(/config_rule_matched:\s*["']?(\w+)/);
         if (ruleMatch) {
           const matchedRule = ruleMatch[1];
-          const impliedReviewer = RULE_IMPLIES_REVIEWER[matchedRule];
-          if (impliedReviewer) {
-            // Check if implied reviewer was skipped
-            const skippedMatches = [...rdContent.matchAll(/- skill:\s*["']?([^\s"'\n]+)/g)];
-            const skippedSkills = skippedMatches.map(m => m[1]);
+          const impliedReviewers = RULE_IMPLIES_REVIEWER[matchedRule] || [];
+          const skippedMatches = [...rdContent.matchAll(/- skill:\s*["']?([^\s"'\n]+)/g)];
+          const skippedSkills = skippedMatches.map(m => m[1]);
+          for (const impliedReviewer of impliedReviewers) {
             if (skippedSkills.includes(impliedReviewer)) {
               const hasSkipDecision = decisionExists(taskDir, `reviewer-skip-${impliedReviewer}`);
               if (!hasSkipDecision) {

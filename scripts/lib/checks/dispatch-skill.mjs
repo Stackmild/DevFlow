@@ -90,6 +90,12 @@ const PREREQS = {
     glob: /^change-package-.*\.yaml$/,
     detail: 'change-package-*.yaml not found in artifacts/ — change-package must exist before dispatching pre-release-test-reviewer',
   },
+  'playwright-e2e-testing': {
+    check: 'artifact_glob',
+    dir: 'artifacts',
+    glob: /^change-package-.*\.yaml$/,
+    detail: 'change-package-*.yaml not found in artifacts/ — change-package must exist before dispatching playwright-e2e-testing',
+  },
   'release-and-change-manager': {
     check: 'artifact_glob',
     dir: 'artifacts',
@@ -186,7 +192,7 @@ export function check(taskDir, skill, phase, { events, warnings: readWarnings })
   // --- Check 1.5 (Schema Signal Patch): scope_flags canonical field name validation ---
   // Canonical keys: ui, interaction, data_model, schema, api (per change-package.md)
   // Non-canonical names (has_frontend_changes etc.) → WARN
-  const REVIEWER_LIKE = ['code-reviewer', 'webapp-consistency-audit', 'pre-release-test-reviewer'];
+  const REVIEWER_LIKE = ['code-reviewer', 'webapp-consistency-audit', 'pre-release-test-reviewer', 'playwright-e2e-testing'];
   if (REVIEWER_LIKE.includes(skill) && violations.length === 0) {
     const sfResult = checkScopeFlagsCanonical(taskDir);
     if (sfResult.valid) {
