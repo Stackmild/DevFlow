@@ -3,7 +3,7 @@
 > orchestrator 最高频的 4 类执行单元。每次执行时**按模板完成全部步骤**，不允许拆开或跳过。
 > 每类动作必须原子完成：事件写入 + artifact/decision 写入 + task.yaml 更新。
 
-⚠️ **全局注释**：Template 中的 task.yaml 字段清单是 **per-action** 的——只列出该动作必须更新的字段。Phase 转换字段（`current_phase` 推进、`completed_phases` 追加）在 **Phase Exit Checklist** 中执行，不在 Template 内部。
+⚠️ **全局注释**：Template 中的 task.yaml 字段清单是 **per-action** 的——只列出该动作必须更新的字段。Phase 转换字段（`current_phase` 推进、`completed_phases` 追加）通过 `transition` 命令原子完成（Template C Step 4a），不在 Template 内部手写。
 
 ⚠️ **Template C 时序说明**：铁律 #15（Pre-Action Check）适用于 Template C **完成之后**的用户交互轮次。Template C 内部的 gate 记录步骤（events.jsonl + decisions/ + task.yaml）不受铁律 #15 约束——它们是 gate 记录本身的原子步骤。
 
@@ -81,8 +81,11 @@
 4. 更新 task.yaml（以下字段全部 MUST 更新）：
    - last_action = "gate {1|2|3} decision: {decision}"
    - next_action = "{下一步行动}"
-   - completed_phases += {当前 phase 的 completion record}（如 phase 因 gate 而完结）
    - status = "{如 Gate 3 ACCEPT 且无续行 → 进 phase_f}"
+4a. ⚠️ Phase 切换（如 gate 决策触发阶段转换）：
+   node scripts/devflow-gate.mjs transition --task-dir {state_dir} --from {current_phase} --to {next_phase}
+   该命令原子完成：写 phase_completed + phase_entered 事件 → 更新 task.yaml current_phase + completed_phases。
+   不再手写 completed_phases 字段——transition 命令自动处理。
 5. ⚠️ HARD GATE（铁律 #15）:
    如 Gate 3 ACCEPT 后用户请求额外工作：
    → HALT 所有文件操作
@@ -91,6 +94,32 @@
    → 通过后走 Template D（record_continuation）
    → 未通过 → 展示四选项等待用户选择
    不可跳过 Pre-Action Check 直接操作文件。
+```
+
+### gate-{N}.yaml 格式（含 user_feedback）
+
+```yaml
+gate: {1|2|3}
+gate_type: "direction | scope | final"
+decision: "GO | ADJUST | PROCEED | RESCOPE | ACCEPT | REVISE | PAUSE | DEFER-TASK"
+decided_at: "{ISO-8601}"
+decided_by: "human"
+user_notes: "{用户在 Gate 展示后给出的原始反馈（自由文本）}"
+
+# user_feedback：半结构化，供自迭代系统消费
+# summary: 关键反馈的一句话摘要（orchestrator 在记录时填写）
+# categories: 反馈类别标签（建议集，不强制）
+#   可选值: scope_change | quality_bar_change | architecture_pivot
+#           review_quality | timeline_pressure | compliance_constraint
+#           user_experience_feedback | scope_unchanged
+# intent_delta: 本次反馈是否改变了后续执行的方向/标准
+user_feedback:
+  summary: ""
+  categories: []
+  intent_delta:
+    adds_scope: false
+    changes_architecture: false
+    changes_acceptance_bar: false
 ```
 
 ---

@@ -43,6 +43,16 @@ const MODE             = TASK_ID ? 'A' : 'B';
 const DRY_RUN          = args.includes('--dry-run');
 const REFRESH_BASELINE = args.includes('--refresh-baseline');
 
+// --log: user-specified chat log paths (files or directories)
+const USER_LOG_PATHS = [];
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--log' && i + 1 < args.length) {
+    for (let j = i + 1; j < args.length && !args[j].startsWith('--'); j++) {
+      USER_LOG_PATHS.push(...args[j].split(',').map(p => resolve(p)));
+    }
+  }
+}
+
 // ─── UTC 타임스탬프（文件名安全：冒号 → 连字符）────────────────────────────
 
 function makeTimestamp() {
@@ -80,19 +90,41 @@ function runScript(label, scriptArgs) {
 /**
  * 扫描 ALL sessions（不限项目路径），返回所有 *.jsonl 文件信息。
  */
-function scanAllJSONLFiles(sessionsBase) {
-  if (!existsSync(sessionsBase)) {
-    console.warn(`  Cowork sessions dir not found: ${sessionsBase}`);
-    return [];
-  }
-
+function scanAllJSONLFiles(sessionsBase, extraPaths = []) {
   const results = [];
-  const sessionDirs = readdirSync(sessionsBase).filter(n => !n.startsWith('.'));
 
-  for (const sessionId of sessionDirs) {
-    const sessionPath = join(sessionsBase, sessionId);
-    collectJsonlFiles(sessionPath, sessionId, results);
+  if (existsSync(sessionsBase)) {
+    const sessionDirs = readdirSync(sessionsBase).filter(n => !n.startsWith('.'));
+    for (const sessionId of sessionDirs) {
+      const sessionPath = join(sessionsBase, sessionId);
+      collectJsonlFiles(sessionPath, sessionId, results);
+    }
+  } else {
+    console.warn(`  Cowork sessions dir not found: ${sessionsBase}`);
   }
+
+  for (const p of extraPaths) {
+    if (!existsSync(p)) { console.warn(`  --log path not found: ${p}`); continue; }
+    const st = statSync(p);
+    if (st.isFile()) {
+      results.push({
+        sessionId: 'user_specified',
+        conversationId: p.split('/').pop().replace(/\.(jsonl|md)$/, ''),
+        filePath: p,
+      });
+    } else if (st.isDirectory()) {
+      for (const f of readdirSync(p)) {
+        if (f.endsWith('.jsonl') || f.endsWith('.md')) {
+          results.push({
+            sessionId: 'user_specified',
+            conversationId: f.replace(/\.(jsonl|md)$/, ''),
+            filePath: join(p, f),
+          });
+        }
+      }
+    }
+  }
+
   return results;
 }
 
@@ -157,6 +189,7 @@ function sessionSync(taskIdFilter = null) {
   console.log('\n── session-sync ──');
   console.log(`  Scan scope: ALL sessions under ${COWORK_BASE}`);
   console.log(`  Relevance: structured-first, grep-fallback`);
+  if (USER_LOG_PATHS.length > 0) console.log(`  User-specified logs: ${USER_LOG_PATHS.join(', ')}`);
   if (taskIdFilter) console.log(`  Task filter: ${taskIdFilter}`);
 
   // Load existing index
@@ -166,8 +199,8 @@ function sessionSync(taskIdFilter = null) {
     catch { /* start fresh */ }
   }
 
-  const allFiles = scanAllJSONLFiles(COWORK_BASE);
-  console.log(`  Found ${allFiles.length} JSONL file(s) across all sessions`);
+  const allFiles = scanAllJSONLFiles(COWORK_BASE, USER_LOG_PATHS);
+  console.log(`  Found ${allFiles.length} file(s) across all sessions`);
 
   const stats = { new: [], updated: [], unchanged: 0, irrelevant: 0, errors: [] };
   const detectionModes = {};
@@ -175,8 +208,13 @@ function sessionSync(taskIdFilter = null) {
   for (const { sessionId, conversationId, filePath } of allFiles) {
     const existing = index.processed_sessions[conversationId];
 
-    // Check relevance
-    if (existing?.devflow_relevant) {
+    // Check relevance (skip for user-specified files — user explicitly chose them)
+    if (sessionId === 'user_specified') {
+      detectionModes['user_specified'] = (detectionModes['user_specified'] || 0) + 1;
+      if (!existing) {
+        index.processed_sessions[conversationId] = { devflow_relevant: true };
+      }
+    } else if (existing?.devflow_relevant) {
       // Already known relevant — skip re-check
     } else {
       // First time or unknown → check relevance

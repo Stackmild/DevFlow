@@ -1,7 +1,7 @@
 // state-reader.mjs — Read events.jsonl + scan decisions/ + issues/ for devflow-gate
 // Zero npm dependencies. Pure node:fs + node:path.
 
-import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, statSync, appendFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -148,6 +148,36 @@ export function scanPermits(taskDir) {
   return readdirSync(dir).filter(f => f.endsWith('.json'));
 }
 
+// ── Write helpers (transition.mjs) ──────────────────────────────────────────
+
+/**
+ * Append one or more events to events.jsonl atomically (single write).
+ */
+export function appendEvents(taskDir, events) {
+  const filePath = join(taskDir, 'events.jsonl');
+  const lines = events.map(e => JSON.stringify(e)).join('\n') + '\n';
+  appendFileSync(filePath, lines, 'utf8');
+}
+
+/**
+ * Update top-level scalar fields in task.yaml (read-modify-write).
+ * Existing keys are replaced in-place; missing keys are appended.
+ */
+export function updateTaskYamlFields(taskDir, updates) {
+  const p = join(taskDir, 'task.yaml');
+  if (!existsSync(p)) return;
+  let content = readFileSync(p, 'utf8');
+  for (const [key, value] of Object.entries(updates)) {
+    const regex = new RegExp(`^(${key}:)\\s*.*$`, 'm');
+    if (regex.test(content)) {
+      content = content.replace(regex, `$1 "${value}"`);
+    } else {
+      content += `\n${key}: "${value}"`;
+    }
+  }
+  writeFileSync(p, content, 'utf8');
+}
+
 // ── Enforcer helpers (devflow-enforcer.mjs) ─────────────────────────────────
 
 /**
@@ -202,38 +232,100 @@ export function hasContinuationDecision(taskDir) {
 }
 
 /**
+ * State consistency checks for omission detection (Fix 3).
+ * Returns { issues: string[] } — non-empty means state anomaly detected.
+ */
+export function checkStateConsistency(taskDir) {
+  const issues = [];
+  const task = readTaskYaml(taskDir);
+  if (!task) return { issues };
+  const { events } = readEvents(taskDir);
+  const evtPhase = currentPhaseFromEvents(events);
+  const artifactsDir = join(taskDir, 'artifacts');
+  const artExists = existsSync(artifactsDir);
+  const artFiles = artExists ? readdirSync(artifactsDir) : [];
+
+  // SC-1: task.yaml current_phase vs events.jsonl last phase_entered
+  if (task.current_phase && evtPhase && task.current_phase !== evtPhase) {
+    issues.push(
+      `SC-1: task.yaml current_phase=${task.current_phase} 但 events.jsonl 最后 phase_entered=${evtPhase}` +
+      ' — 状态写入可能断流'
+    );
+  }
+
+  // SC-2: gate decision file exists but no corresponding gate_decision event
+  const decisionsDir = join(taskDir, 'decisions');
+  if (existsSync(decisionsDir)) {
+    for (const n of ['1', '2', '3']) {
+      if (decisionExists(taskDir, `gate-${n}.yaml`)) {
+        const hasEvt = events.some(e => e.event_type === 'gate_decision' && String(e.payload?.gate) === n);
+        if (!hasEvt) {
+          issues.push(`SC-2: decisions/gate-${n}.yaml 存在但 events.jsonl 无对应 gate_decision 事件`);
+        }
+      }
+    }
+  }
+
+  // SC-3: Phase D + code artifacts exist but no change-package
+  if (task.current_phase === 'phase_d') {
+    const hasCP = artFiles.some(f => /^change-package-.*\.yaml$/.test(f));
+    const hasImpl = artFiles.some(f => f.endsWith('-report.yaml') || f.includes('implementation'));
+    if (!hasCP && hasImpl) {
+      issues.push('SC-3: 当前 Phase D，有实现产出但无 change-package — D.1 可能未正式产出');
+    }
+  }
+
+  // SC-4: Phase D + change-package exists but no reviewer report
+  if (task.current_phase === 'phase_d') {
+    const hasCP = artFiles.some(f => /^change-package-.*\.yaml$/.test(f));
+    const reviewerReportPattern = /^(code-reviewer|webapp-consistency-audit|pre-release-test-reviewer|playwright-e2e-testing|e2e-visual-test)-report\.yaml$/;
+    const hasReviewReport = artFiles.some(f => reviewerReportPattern.test(f));
+    if (hasCP && !hasReviewReport) {
+      issues.push('SC-4: change-package 已产出但无 reviewer report — D.2 可能未启动，不得跳到 Gate 3 或 Phase F');
+    }
+  }
+
+  return { issues };
+}
+
+/**
  * Resolve active task from a file path being written.
  * 4-tier priority: path extract → project_path match → env var → null.
  * P4 (global scan) is NOT used here — only for UserPromptSubmit.
  *
  * @param {string} filePath - Absolute path of the file being written
- * @param {string} stateDir - Absolute path to orchestrator-state/
+ * @param {string|string[]} stateDir - Absolute path(s) to orchestrator-state/ directories
  * @returns {{ id: string, dir: string, source: string } | null}
  */
 export function resolveTaskFromPath(filePath, stateDir) {
-  if (!existsSync(stateDir)) return null;
+  const stateDirs = (Array.isArray(stateDir) ? stateDir : [stateDir]).filter(d => existsSync(d));
 
   // P1: Extract task_id from orchestrator-state/{task_id}/...
-  const osMatch = filePath.match(/orchestrator-state\/([^/]+)\//);
+  // Use the actual path from the match — handles external project state dirs
+  const osMatch = filePath.match(/(.*\/orchestrator-state)\/([^/]+)\//);
   if (osMatch) {
-    const taskDir = join(stateDir, osMatch[1]);
+    const matchedStateDir = osMatch[1];
+    const taskId = osMatch[2];
+    const taskDir = join(matchedStateDir, taskId);
     if (existsSync(join(taskDir, 'task.yaml'))) {
-      return { id: osMatch[1], dir: taskDir, source: 'path_extract' };
+      return { id: taskId, dir: taskDir, source: 'path_extract' };
     }
   }
 
-  // P2: Match file path against task.yaml project_path
+  // P2: Match file path against task.yaml project_path (searches all state dirs)
   if (!filePath.includes('orchestrator-state/')) {
     const candidates = [];
-    for (const tid of readdirSync(stateDir)) {
-      if (tid === '_derived' || tid.startsWith('.')) continue;
-      const tyPath = join(stateDir, tid, 'task.yaml');
-      if (!existsSync(tyPath)) continue;
-      const task = parseSimpleYaml(readFileSync(tyPath, 'utf8'));
-      if (task.project_path && filePath.startsWith(task.project_path)) {
-        let mtime = 0;
-        try { mtime = statSync(tyPath).mtimeMs; } catch { /* ignore */ }
-        candidates.push({ id: tid, dir: join(stateDir, tid), status: task.status || '', mtime });
+    for (const sd of stateDirs) {
+      for (const tid of readdirSync(sd)) {
+        if (tid === '_derived' || tid.startsWith('.')) continue;
+        const tyPath = join(sd, tid, 'task.yaml');
+        if (!existsSync(tyPath)) continue;
+        const task = parseSimpleYaml(readFileSync(tyPath, 'utf8'));
+        if (task.project_path && filePath.startsWith(task.project_path)) {
+          let mtime = 0;
+          try { mtime = statSync(tyPath).mtimeMs; } catch { /* ignore */ }
+          candidates.push({ id: tid, dir: join(sd, tid), status: task.status || '', mtime });
+        }
       }
     }
     if (candidates.length === 1) return { ...candidates[0], source: 'project_path' };
@@ -260,19 +352,23 @@ export function resolveTaskFromPath(filePath, stateDir) {
 /**
  * Find the most recently active in_progress task via global scan.
  * Only for UserPromptSubmit hook — NOT for PreToolUse.
+ * @param {string|string[]} stateDir - Absolute path(s) to orchestrator-state/ directories
  */
 export function resolveTaskGlobalScan(stateDir) {
-  if (!existsSync(stateDir)) return null;
+  const stateDirs = (Array.isArray(stateDir) ? stateDir : [stateDir]);
   const candidates = [];
-  for (const tid of readdirSync(stateDir)) {
-    if (tid === '_derived' || tid.startsWith('.')) continue;
-    const tyPath = join(stateDir, tid, 'task.yaml');
-    if (!existsSync(tyPath)) continue;
-    const task = parseSimpleYaml(readFileSync(tyPath, 'utf8'));
-    if (task.status === 'in_progress') {
-      let mtime = 0;
-      try { mtime = statSync(tyPath).mtimeMs; } catch { /* ignore */ }
-      candidates.push({ id: tid, dir: join(stateDir, tid), mtime });
+  for (const sd of stateDirs) {
+    if (!existsSync(sd)) continue;
+    for (const tid of readdirSync(sd)) {
+      if (tid === '_derived' || tid.startsWith('.')) continue;
+      const tyPath = join(sd, tid, 'task.yaml');
+      if (!existsSync(tyPath)) continue;
+      const task = parseSimpleYaml(readFileSync(tyPath, 'utf8'));
+      if (task.status === 'in_progress') {
+        let mtime = 0;
+        try { mtime = statSync(tyPath).mtimeMs; } catch { /* ignore */ }
+        candidates.push({ id: tid, dir: join(sd, tid), mtime });
+      }
     }
   }
   if (candidates.length === 0) return null;

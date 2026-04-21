@@ -25,68 +25,22 @@ triggers:
 
 # WebApp 代码逻辑 / 数据 Contract / 页面一致性审计 Skill
 
-## A. Skill 名称
-
-**WebApp 一致性与 Contract 审计**
-
----
-
 ## B. Skill 目标
 
-本 Skill 用于审计一个 Web App 是否存在以下四大类问题，并把问题落到可执行修复上：
+本 Skill 审计以下四大类问题，并把问题落到可执行修复上：
 
-### 1) 代码逻辑类问题
-- 业务规则在多个地方重复定义，导致冲突
-- 条件分支、权限、导航、feature flag、loading/empty/error 状态互相打架
-- 同一概念在不同模块命名、枚举、校验规则不一致
-- 页面逻辑正确地"渲染了错误的数据前提"
+| 类型 | 典型问题 |
+|---|---|
+| **1. 代码逻辑** | 业务规则多处定义且冲突；条件分支/权限/状态互相打架；同一概念命名/枚举/校验不一致；页面正确渲染了错误的数据前提 |
+| **2. Contract/数据** | 前后端 route/query/response shape 不一致；字段名漂移（`items`/`records` 等）；sync/init/backfill 未执行掩盖数据问题；不同用户项目子集字段完整度差异未识别 |
+| **3. 页面与设计一致性** | 同级页面边距/字号/组件密度不一致；design token 大量硬编码；跨区域视觉割裂（无 tone 宣言时降级 P2）；受限容器（<200px）文字溢出未处理（P1） |
+| **4. 用户视角/Persona** | owner 正常但业务同事异常；同页面不同用户的项目子集/状态对象/聚合结果差异巨大；dashboard 统计依赖 state/init/backfill 而非纯前端展示 |
 
-### 2) Contract / 数据类问题
-- 前后端 route、query、payload shape 不一致
-- API response 与前端消费字段名不一致（如 `items` / `records`）
-- 页面依赖的聚合字段没有返回，或不同用户返回不一致
-- sync / init-state / backfill 未执行，导致页面 fallback 掩盖真实数据问题
-- 同一张表的同一字段，在不同项目子集上完整度差异巨大，但未被显式识别
-
-### 3) 页面与设计一致性问题
-- 同级页面在边距、字号、标题层级、组件密度、按钮层级上不一致
-- 相同用途组件出现不同视觉规范
-- design token 未被统一使用，存在大量硬编码样式值
-- 页面看起来像"一个产品里的多个系统拼起来的"
-
-**3c. 跨区域视觉和谐**
-
-检查 Nav/Sidebar/Content/Header 等主要布局区域：
-- 相邻区域背景色差异是否导致视觉割裂？
-- 正文文字对比度是否 ≥ WCAG AA（4.5:1）？
-- active/hover/selected 在不同背景区域是否风格一致？
-- 若刻意双色调设计，是否有 frontend-design spec 中的 tone 宣言作为合理性说明？
-
-发现明显割裂感（如深色 nav + 浅色 content 无过渡机制）→ 标注 **P1**，不是"风格偏好建议"。
-
-> **无 tone 宣言时的降级规则**：若 frontend-design spec 不含 §15b tone 宣言（旧版产出或 Phase C 未运行 frontend-design），3c 降级为推断性建议（**P2**），在 review report 中注明"缺少 tone 宣言基准（pre-§15b 任务），判定基于 reviewer 推断，建议人工确认"。
-
-**3d. 受限容器文字溢出**
-
-对所有宽度 < 200px 的 nav/sidebar/source-chips 容器，使用以下测试模式验证：
-- **纯中文 6 字以上标签**（如"数据源监控"）
-- **混合中英文 8 字符以上标签**（如"AI Coding学习库"）
-- **纯英文长词**（如"Anthropic Blog"）
-
-每类是否有 ellipsis/clamp/折行策略？非预期折行或溢出容器 → 标注 **P1**。
-
-### 4) 用户视角 / Persona 差异问题
-- owner 账号正常，业务同事账号异常
-- 同一页面在不同用户下拿到的项目子集、状态对象、聚合结果差异巨大
-- 列表页正常但详情页失败
-- dashboard 统计正常与否依赖 state/init/backfill，而非单纯前端展示逻辑
-
-本 Skill 的目标不是只报错，而是：
-
-1. **先识别系统里真正的单一事实来源是否存在**
-2. **再定位逻辑冲突与 contract 断裂发生在哪一层**
-3. **明确区分代码 bug、数据缺值、同步缺口、用户视角差异**
-4. **最后输出可执行、可排序、可复验的修复方案**
+**审计目标（按序）**：
+1. 确认系统是否有单一事实来源
+2. 定位逻辑冲突与 contract 断裂在哪一层
+3. 明确区分：代码 bug、数据缺值、同步缺口、用户视角差异
+4. 输出可执行、可排序、可复验的修复方案
 
 ---
 
@@ -116,57 +70,19 @@ triggers:
 - 单独完成复杂架构设计或数据库建模
 - 替代发布管理与回滚策略设计（那是 `release-and-change-manager` 的职责）
 
-本 Skill 强调：
-
 > **先确认差异是否有意设计，再判定是否属于不一致；先确认是代码问题还是数据前提问题，再决定修法。**
 
 ---
 
 ## E. 核心原则
 
-### 原则 1：先静态约束，后动态测试
-先看 lint / 类型 / schema / 路由 / DTO / token / 配置，再跑页面测试。能在静态层抓住的问题，不应等到浏览器里才发现。
-
-### 原则 2：优先检查单一事实来源
-高频不一致通常不是某个页面"手误"，而是因为：
-- token 没有统一来源
-- route config 与 menu config 分裂
-- API schema 与 form schema 分裂
-- 状态枚举在多个文件重复定义
-- 页面布局规范只存在于脑子里
-- 同一业务字段在 sync、DB、API、UI 四层各叫各的名字
-
-### 原则 3：先区分代码 bug 与数据前提问题
-很多"页面不对"并不是前端组件坏了，而是：
-- 字段没 sync 进库
-- state 没初始化
-- backfill 没执行
-- 用户子集拿到的项目本身字段完整度低
-- 空值 fallback 掩盖了根因
-
-### 原则 4：用户视角差异是一级风险
-对于内部工具，默认必须考虑：
-- owner / 管理员
-- 普通成员
-- 新同步 / 弱数据用户
-- 不同项目子集用户
-
-"我这里正常"不能作为系统正确的证明。
-
-### 原则 5：组件一致性优先于页面一致性
-页面一致性最好从组件层解决，而不是在页面层到处补丁。
-
-### 原则 6：一致性检测必须证据化
-所有问题尽量指向：
-- 具体文件 / 组件 / route / selector
-- 具体 token / 样式值 / 文本 / 条件分支
-- 具体 API / response key / DB 字段 / job
-- 具体 persona / 项目子集 / 页面差异
-
-不能只说"看起来不统一"。
-
-### 原则 7：无障碍是 UI 一致性的一部分
-标题、表单标签、对话框命名、对比度、焦点态，既是 accessibility 问题，也是产品一致性问题。
+1. **先静态约束，后动态测试**：先看 lint/类型/schema/路由/DTO/token；能在静态层抓住的问题不应等到浏览器里才发现。
+2. **优先检查单一事实来源**：高频不一致通常因 token 无统一来源、route/menu config 分裂、API schema 与 form schema 分裂、状态枚举多文件重复定义。
+3. **先区分代码 bug 与数据前提问题**：字段没 sync、state 没初始化、backfill 没执行、用户子集字段完整度低、空值 fallback 掩盖根因 → 这些不是前端 bug。
+4. **用户视角差异是一级风险**：默认必须考虑 owner/管理员、普通成员、新同步/弱数据用户、不同项目子集用户；"我这里正常"不能作为系统正确的证明。
+5. **组件一致性优先于页面一致性**：页面一致性最好从组件层解决，而不是在页面层到处补丁。
+6. **一致性检测必须证据化**：所有问题必须指向具体文件/组件/route/selector/token/API/job，不能只说"看起来不统一"。
+7. **无障碍是 UI 一致性的一部分**：标题/表单标签/对话框命名/对比度/焦点态，既是 a11y 问题，也是产品一致性问题。
 
 ---
 
@@ -198,31 +114,14 @@ triggers:
 
 ---
 
-## G. 推荐默认技术栈（若项目已有其他方案，则沿用现有方案优先）
+## G. 推荐默认技术栈（项目已有方案则优先沿用）
 
-### 代码正确性与约束
-- TypeScript strict mode
-- ESLint
-- eslint-plugin-react-hooks
-- Zod / 同类 schema 工具
-- Stylelint
-- shared API/domain types
-
-### 测试层
-- Testing Library
-- Playwright
-- Storybook
-
-### 设计系统层
-- Design Tokens
-- Layout primitives / page shell / header pattern / form pattern / table pattern
-- Style Dictionary 或同类 token pipeline
-
-### 数据与 contract 层
-- DTO / schema / shared type 显式化
-- route contract map
-- data-readiness checks（sync/init/backfill/seed）
-- persona matrix validation
+| 层 | 工具 |
+|---|---|
+| 代码约束 | TypeScript strict · ESLint · eslint-plugin-react-hooks · Zod/schema · Stylelint · shared API/domain types |
+| 测试 | Testing Library · Playwright · Storybook |
+| 设计系统 | Design Tokens · Layout primitives · Style Dictionary 或同类 token pipeline |
+| Contract/数据 | DTO/schema/shared type 显式化 · route contract map · data-readiness checks · persona matrix validation |
 
 ---
 
@@ -238,295 +137,89 @@ triggers:
 2. 导航分组说明（哪些属于同级页面）
 3. 设计规范、Figma、Storybook、token 文件（任一即可）
 4. 已知问题样例
-5. 若是数据型应用，最好提供：
-   - 关键表结构或字段说明
-   - sync / init / backfill 的现状
-   - 关键 persona 名单
-   - 典型项目/记录样本
+5. 若是数据型应用：关键表结构/字段说明、sync/init/backfill 现状、关键 persona 名单、典型记录样本
 
 ### 若没有这些输入
-Skill 仍可执行，但必须明确标注：
-- 哪些结论是强证据
-- 哪些是高概率推断
-- 哪些因缺设计基线或缺数据基线无法最终判断
+Skill 仍可执行，但必须明确标注：哪些是强证据、哪些是高概率推断、哪些因缺设计/数据基线无法最终判断。
 
 ---
 
 ## I. 执行流程
 
-## Step 0. 项目侦察（Repo Recon）
-先快速建立地图，不直接开改。
-
-### 要识别的内容
-- package manager
-- framework
-- 是否有 TypeScript、ESLint、Stylelint、Playwright、Vitest/Jest、Storybook
-- 是否有 Tailwind / CSS Modules / styled-components / emotion / SCSS
-- 是否存在 token 文件、theme 文件、UI primitives、layout primitives
-- route 定义位置
-- nav / sidebar / tabs / breadcrumbs 来源
-- API schema、form schema、domain types 的位置
-- controller / service / DTO / shared type 分层
-- sync / init-state / backfill / worker / cron / seed 逻辑位置
-- Dashboard / 列表 / 详情分别依赖的数据来源
-
-### 输出
-给出一份简短地图：
-- app 结构
-- 测试基础设施现状
-- 设计系统现状
-- contract 单一事实来源位置
-- 数据作业位置
-- 高风险 persona 差异点
+### Step 0. 项目侦察（Repo Recon）
+先快速建立地图，不直接开改。识别：package manager、framework、TypeScript/ESLint/Stylelint/Playwright/Storybook 现状、样式方案（Tailwind/CSS Modules/SCSS）、token/theme/UI primitives 文件、route 定义位置、nav/sidebar 来源、API schema/form schema/domain types 位置、controller/service/DTO 分层、sync/init-state/backfill/worker 逻辑位置、Dashboard/列表/详情数据来源。**输出**：app 结构、测试基础设施、设计系统现状、contract 真相来源、数据作业位置、高风险 persona 差异点。
 
 ---
 
-## Step 1. 静态一致性审计（Static Contract Audit）
-目标：先找不运行页面就能确认的问题。
+### Step 1. 静态一致性审计（Static Contract Audit）
+先找不运行页面就能确认的问题：
 
-### 1.1 类型与 schema
-检查：
-- tsconfig 是否启用 strict 或接近 strict
-- API response、前端 type、表单 schema 是否三套并存且不一致
-- 是否有大量 `any` / `unknown` 掩盖真实 contract 问题
-- parser 输出与 UI 消费字段是否不一致
-- enum / status / variant 是否重复定义、值不一致
-
-### 1.2 前端逻辑规则
-检查：
-- Hook 是否违反规则
-- effect 依赖是否遗漏导致状态陈旧
-- loading / empty / error / success 分支是否互斥不清
-- feature flag 是否在多个位置各自解释
-- 权限判断是否在 route、menu、component 三处各写一遍
-
-### 1.3 Route / API / DTO 契约
-重点检查：
-- 页面实际请求的 route 是否真实存在
-- query 参数是否被 controller / service 支持
-- alias 路由是否只补一半
-- response shape 是否与前端读取字段一致
-- shared/api.interface 与 controller 实际返回是否一致
-- 是否存在 `items` / `records`、`exclude` / `removeFromMonitor`、`/worklog` / `/worklogs` 一类漂移
-
-### 1.4 样式与 token 静态规则
-检查：
-- 是否大量硬编码颜色、字号、间距、圆角、阴影
-- token 名称是否混乱，是否存在 deprecated token
-- 自定义 CSS 是否绕开设计系统 primitives
-
-### 1.5 导航与信息架构
-检查：
-- sidebar / tabs / route title / page heading 是否同源
-- 菜单可见性与页面可访问性是否不一致
-- breadcrumb、返回逻辑、一级二级导航是否语义冲突
+- **1.1 类型与 schema**：tsconfig strict 是否启用、API response/前端 type/表单 schema 三套是否不一致、大量 `any`/`unknown`、enum/status 重复定义值不一致
+- **1.2 前端逻辑规则**：Hook 规则违反、effect 依赖遗漏导致状态陈旧、loading/empty/error/success 互斥不清、feature flag/权限判断在 route/menu/component 三处各写
+- **1.3 Route/API/DTO 契约**：页面实际请求 route 是否存在、query 参数是否被支持、alias 路由是否只补一半、response shape 与前端读取是否一致、`items`/`records` 等字段漂移
+- **1.4 样式与 token**：大量硬编码颜色/字号/间距/圆角/阴影、deprecated token、绕开 primitives 的自定义 CSS
+- **1.5 导航与信息架构**：sidebar/tabs/route title/page heading 是否同源、菜单可见性与页面可访问性是否一致、breadcrumb/返回逻辑/导航语义冲突
 
 ---
 
-## Step 2. 数据前提与字段完整度审计（新增重点）
-目标：识别"代码没坏，但数据前提没准备好"的问题。
+### Step 2. 数据前提与字段完整度审计
+识别"代码没坏，但数据前提没准备好"的问题：
 
-### 2.1 关键数据作业识别
-识别是否依赖：
-- sync
-- init-state
-- backfill
-- seed
-- 外部 ID 映射
-- 聚合字段生成
-
-### 2.2 关键字段完整度检查
-对 dashboard / 列表 / 详情依赖的关键字段做检查，例如：
-- 分组字段（城市、状态、owner）
-- 摘要字段（最近拜访、阶段、金额）
-- 状态字段（radar state、review state）
-- 外部主键 / bitableRecordId
-
-输出：
-- 总记录数
-- 非空数量
-- 空值数量
-- 非空率
-- 是否达到可发布水平
-
-### 2.3 空值 fallback 是否合理
-区分：
-- 这是合理 fallback
-- 这是数据没准备好但页面还能活
-- 这是页面逻辑掩盖了真实问题
-
-例如：
-- `未分类`
-- `暂无数据`
-- 默认 badge
-- 空状态替代真实错误
+- **2.1 数据作业识别**：是否依赖 sync / init-state / backfill / seed / 外部 ID 映射 / 聚合字段生成
+- **2.2 关键字段完整度**：对 dashboard/列表/详情依赖的分组字段/摘要字段/状态字段/外部主键做检查，输出：总记录数、非空数量、空值数量、非空率、是否达发布水平
+- **2.3 空值 fallback 合理性**：区分合理 fallback、数据未准备好但页面能活、页面逻辑掩盖真实问题（如 `未分类`/`暂无数据`/默认 badge）
 
 ---
 
-## Step 3. Persona / 用户视角审计（新增重点）
-目标：拦住"我这边正常，同事那边全坏"。
-
-### 默认至少识别三类 persona
-1. Owner / 管理者 / 全量视角用户
-2. 普通业务用户
-3. 弱数据用户（新同步、字段缺失、state 未补齐）
-
-### 对每个 persona 至少检查
-- 登录
-- Dashboard / 首页
-- 列表页
-- 详情页
-- 关键字段
-- 关键动作
-
-### 重点不是比较项目重叠，而是比较：
-- 同一张表的同一关键字段，在各自项目子集上的完整度
-- 同一页面的 API 返回 shape 是否一致
-- 是否只是数据缺值导致 fallback
-- 是否存在用户维度 payload / state / aggregation 异常
+### Step 3. Persona / 用户视角审计
+拦住"我这边正常，同事那边全坏"。默认三类 persona：① Owner/管理者/全量视角；② 普通业务用户；③ 弱数据用户（新同步/字段缺失/state 未补齐）。
+对每个 persona 至少检查：登录、Dashboard/首页、列表页、详情页、关键字段、关键动作。
+重点比较：同一关键字段在各 persona 项目子集上的完整度、同页面 API 返回 shape 是否一致、是否存在 payload/state/aggregation 异常。
 
 ---
 
-## Step 4. 现有测试资产盘点（Use Existing Tests First）
-先尊重现有工程资产，不要一上来重写测试。
-
-### 要做的事
-- 读取现有 unit / integration / E2E / visual tests
-- 判断它们覆盖的是实现细节还是用户行为
-- 判断是否存在 brittle tests / snapshot 滥用 / 无断言测试
-- 标记哪些测试本身已经暴露 contract 漂移和设计漂移
-
-### 输出
-- 现有测试可复用清单
-- 薄弱区清单
-- 误导性测试清单
+### Step 4. 现有测试资产盘点
+先尊重现有工程资产，不要一上来重写测试。读取现有 unit/integration/E2E/visual tests，判断覆盖实现细节还是用户行为，标记 brittle tests/snapshot 滥用/无断言测试。**输出**：可复用清单、薄弱区清单、误导性测试清单。
 
 ---
 
-## Step 5. 最小高信号测试生成（Only If Needed）
-若现有测试不足，再补最小一组高价值测试，而不是铺满。
+### Step 5. 最小高信号测试生成（Only If Needed）
+若现有测试不足，再补最小一组高价值测试：
 
-### 5.1 逻辑测试优先级
-优先补：
-1. 列表 → 详情 主链路
-2. Dashboard 聚合与 fallback 逻辑
-3. route / query / response shape 契约
-4. 权限与 persona 分支
-5. 关键表单校验
-6. 状态切换与空/错/加载分支
-
-### 5.2 页面一致性测试优先级
-优先补：
-1. 同级页面 header 区
-2. 列表页工具栏 / filter bar / table 容器
-3. 表单页标签、输入框、错误提示、按钮层级
-4. 卡片容器、间距、标题、说明文案密度
-5. 弹窗 / drawer / sheet 的 header-footer 结构
-
-### 5.3 测试写法要求
-- 优先用户视角查询与断言
-- 避免只断言 className 或内部 state
-- 必要时断言 computed style / token 使用结果
-- 视觉测试与语义测试分开
-- 对内部数据型应用，补上 persona matrix 与 data-readiness smoke
+- **逻辑测试优先**：列表→详情主链路、Dashboard 聚合与 fallback 逻辑、route/query/response shape 契约、权限与 persona 分支、关键表单校验、状态切换与空/错/加载分支
+- **UI 一致性测试优先**：同级页面 header 区、列表页工具栏/filter bar/table 容器、表单标签/输入框/错误提示/按钮层级、卡片容器/间距/标题、弹窗 header-footer 结构
+- **写法要求**：用户视角查询与断言、避免只断言 className/内部 state、补 persona matrix 与 data-readiness smoke
 
 ---
 
-## Step 6. 组件一致性审计（Component Consistency Audit）
-
-### 需要建立的组件矩阵
-对以下组件做横向盘点：
-- Button
-- Input / Select / Textarea / Checkbox / Radio / Switch
-- Modal / Dialog / Drawer / Sheet
-- PageHeader / SectionHeader
-- Card / Panel / Widget
-- Table / List / EmptyState / LoadingState / ErrorState
-- Tabs / Breadcrumb / Pagination
-- Badge / Tag / StatusChip / Toast
-
-### 每个组件要检查的维度
-- variant 是否过多或命名混乱
-- 同一 variant 在不同地方视觉不一致
-- 尺寸体系是否统一
-- 交互态是否齐全且一致
-- 是否使用 token
-- 是否存在"同名不同样"或"同样不同名"
+### Step 6. 组件一致性审计
+对以下组件做横向盘点：Button、Input/Select/Textarea/Checkbox/Radio/Switch、Modal/Dialog/Drawer/Sheet、PageHeader/SectionHeader、Card/Panel/Widget、Table/List/EmptyState/LoadingState/ErrorState、Tabs/Breadcrumb/Pagination、Badge/Tag/StatusChip/Toast。
+每个组件检查：variant 过多或命名混乱、同 variant 在不同地方视觉不一致、尺寸体系、交互态是否齐全且一致、是否使用 token、"同名不同样"/"同样不同名"。
 
 ---
 
-## Step 7. 同级页面一致性审计（Sibling Page Audit）
+### Step 7. 同级页面一致性审计（Sibling Page Audit）
+建立"同级页面组"，对每组按以下维度对比：
 
-### 先建立"同级页面组"
-例如：
-- 一级导航下的所有列表页
-- 一级导航下的所有详情页
-- 同一模块下的设置页
-- 同一工作台中的 dashboard 子页
-
-### 对每组页面做对比
-必须检查：
-
-#### 7.1 布局与容器
-- 主容器最大宽度
-- 左右 padding
-- 顶部留白
-- 区块间距
-- 栅格列距
-
-#### 7.2 标题系统
-- 页面标题字号 / 字重 / 行高
-- 副标题、描述文字样式
-- section 标题层级
-- 标题与操作区距离
-
-#### 7.3 操作区
-- 主按钮位置是否一致
-- 主次按钮层级是否一致
-- 筛选栏、搜索框、批量操作区是否一致
-
-#### 7.4 数据展示
-- table header / row 密度
-- 卡片 padding / gap / shadow / radius
-- 数字、状态标签、时间字段排版是否一致
-
-#### 7.5 状态页
-- loading skeleton 是否一致
-- empty state 是否统一
-- error state 是否统一
-- 无权限 / 无数据 / 过滤为空是否被混用
-
-#### 7.6 弹出层
-- 标题区样式
-- 关闭动作位置
-- footer 按钮顺序
-- 危险态规则
+| 维度 | 检查项 |
+|---|---|
+| 布局与容器 | 最大宽度 / 左右 padding / 顶部留白 / 区块间距 / 栅格列距 |
+| 标题系统 | 页面标题字号·字重·行高 / 副标题 / section 标题层级 / 与操作区距离 |
+| 操作区 | 主按钮位置 / 主次按钮层级 / 筛选栏·搜索框·批量操作一致性 |
+| 数据展示 | table header/row 密度 / 卡片 padding·gap·shadow·radius / 数字·状态标签·时间排版 |
+| 状态页 | loading skeleton / empty state / error state 统一性；无权限·无数据·过滤为空是否混用 |
+| 弹出层 | 标题区样式 / 关闭动作位置 / footer 按钮顺序 / 危险态规则 |
 
 ---
 
-## Step 8. 视觉回归检测（Visual Regression）
-优先顺序：
-1. Storybook 组件级视觉回归
-2. 关键页面 Playwright 截图对比
-3. 跨浏览器 smoke
-
-原则：
-- 先组件后页面
-- 截图必须有稳定基线
-- 只对关键页面/关键状态做视觉对比
-- 将视觉差异与 root cause 对上：token 漂移、布局漂移、文案换行、组件替换、数据态不同等
+### Step 8. 视觉回归检测
+顺序：① Storybook 组件级视觉回归 → ② 关键页面 Playwright 截图对比 → ③ 跨浏览器 smoke。
+原则：先组件后页面、截图必须有稳定基线、只对关键页面/关键状态做对比、将视觉差异与 root cause 对上（token 漂移/布局漂移/文案换行/组件替换/数据态不同等）。
 
 ---
 
-## Step 9. 无障碍与语义一致性审计（A11y + Semantic Consistency）
-必查：
-- 页面是否有清晰 title
-- dialog / drawer 是否有可感知名称
-- form element 是否有 visible label
-- icon-only button 是否有可访问名称
-- tab / nav / table / list 是否有合理语义
-- 焦点态是否可见
-- 对比度是否足够
+### Step 9. 无障碍与语义一致性审计
+必须检查：页面是否有清晰 title、dialog/drawer 是否有可感知名称、form element 是否有 visible label、icon-only button 是否有可访问名称、tab/nav/table/list 是否有合理语义、焦点态是否可见、对比度是否足够。
 
 ---
 
@@ -534,55 +227,30 @@ Skill 仍可执行，但必须明确标注：
 
 ### 1. 代码逻辑 / Contract 类
 
-#### Rule L1：同一业务概念不得多处定义
-如 status、role、variant、sourceType、periodLabel 等。
-
-#### Rule L2：route、menu、page heading 应尽量同源
-若 route title、sidebar label、breadcrumb label 分别手写，极易漂移。
-
-#### Rule L3：API schema、frontend type、form validation 应可相互映射
-若不能映射，就极易出现页面接受一种值、接口返回另一种值。
-
-#### Rule L4：页面依赖的接口 contract 必须显式核对
-包括：
-- path
-- method
-- query/body
-- 关键 response 字段
-- alias 路由
-- shared types
-
-#### Rule L5：loading / empty / error / success 必须互斥清晰
-不要让空数据与接口失败展示同一种 UI。
-
-#### Rule L6：feature flag 与权限逻辑必须可追踪
-不能在多个位置各写一套判断。
-
-#### Rule L7：数据作业依赖必须显式
-页面若依赖 sync / init-state / backfill，必须在审计中点名，而不是假定数据已经在。
-
-#### Rule L8：Dashboard / 列表聚合字段必须检查完整度
-例如城市、上次拜访、状态等，不能只看页面能否渲染。
-
-#### Rule L9：Persona 差异必须解释
-若 owner 正常、同事异常，不能停留在现象层，必须区分是：
-- 代码 bug
-- 数据缺值
-- 状态未初始化
-- 用户视角异常
-
----
+| Rule | 要点 |
+|---|---|
+| L1 | 同一业务概念（status/role/variant/sourceType 等）不得多处定义 |
+| L2 | route / menu title / page heading / breadcrumb 尽量同源，分散写极易漂移 |
+| L3 | API schema、frontend type、form validation 必须可相互映射 |
+| L4 | 页面依赖的接口 contract 必须显式核对（path/method/query/body/response 字段/alias/shared types）|
+| L5 | loading / empty / error / success 必须互斥清晰；空数据与接口失败禁止展示同一 UI |
+| L6 | feature flag 与权限逻辑必须可追踪，禁止在多处各写一套判断 |
+| L7 | 数据作业依赖（sync/init-state/backfill）必须显式点名，不能假定数据已在 |
+| L8 | Dashboard / 列表聚合字段（城市/上次拜访/状态等）必须检查字段完整度 |
+| L9 | Persona 差异必须区分原因：代码 bug / 数据缺值 / 状态未初始化 / 用户视角异常 |
 
 ### 2. 页面元素一致性类
 
-#### Rule U1：同级页面应共享容器规范
-#### Rule U2：同类页面应共享标题系统
-#### Rule U3：主操作位置与按钮层级应稳定
-#### Rule U4：同类组件状态应一致
-#### Rule U5：空态、错态、加载态必须有统一语法
-#### Rule U6：图标尺寸、文字尺寸、点击区域应统一
-#### Rule U7：表单必须一致地处理 label / help / error
-#### Rule U8：表格与卡片的密度体系要稳定
+| Rule | 要点 |
+|---|---|
+| U1 | 同级页面共享容器规范 |
+| U2 | 同类页面共享标题系统 |
+| U3 | 主操作位置与按钮层级稳定 |
+| U4 | 同类组件状态一致 |
+| U5 | 空态·错态·加载态必须有统一语法 |
+| U6 | 图标尺寸·文字尺寸·点击区域统一 |
+| U7 | 表单必须一致处理 label / help / error |
+| U8 | 表格与卡片密度体系稳定 |
 
 ---
 
@@ -658,47 +326,18 @@ Skill 仍可执行，但必须明确标注：
 - "可能是缓存问题"
 - "应该是字段没回来"
 
-必须具体到：
-- 哪个 contract 断了
-- 哪个字段缺了
-- 哪个 persona 异常
-- 根因在哪层
-- 如何验证修复完成
+必须具体到：哪个 contract 断了、哪个字段缺了、哪个 persona 异常、根因在哪层、如何验证修复完成。
 
 ---
 
 ## M. 默认执行策略
 
-### 当项目已有较完整工程化基础
-优先：
-1. 读现有规则
-2. 复用现有测试
-3. 补缺口
-4. 输出治理建议
-
-### 当项目几乎没有测试与设计系统
-优先：
-1. 建立页面组与组件清单
-2. 找 5–10 个最高价值 contract / data / logic 问题
-3. 找 5–10 个最高价值 UI 不一致
-4. 先补最小自动化防线
-5. 再谈全面治理
-
-### 当项目依赖大量真实数据
-优先：
-1. 建字段完整度基线
-2. 建 persona matrix
-3. 建 dashboard/list/detail 主链路 smoke
-4. 建 sync / init / backfill readiness checklist
-
-### 当项目由飞书妙搭 + Cowork 混合开发
-优先：
-1. 先核对页面实际依赖接口与字段
-2. 再核对 controller / service / DTO / shared type
-3. 再核对数据库字段与数据作业
-4. 最后做页面与组件一致性审计
-
-也就是：
+| 场景 | 优先顺序 |
+|---|---|
+| **已有较完整工程化基础** | 读现有规则 → 复用现有测试 → 补缺口 → 输出治理建议 |
+| **几乎没有测试与设计系统** | 建页面组与组件清单 → 找最高价值 contract/data/logic 问题（5-10 个）→ 找最高价值 UI 不一致（5-10 个）→ 补最小自动化防线 → 再谈全面治理 |
+| **依赖大量真实数据** | 建字段完整度基线 → 建 persona matrix → 建 dashboard/list/detail 主链路 smoke → 建 sync/init/backfill readiness checklist |
+| **飞书妙搭 + Cowork 混合** | 核对页面依赖接口与字段 → 核对 controller/service/DTO/shared type → 核对数据库字段与数据作业 → 做页面与组件一致性审计 |
 
 > **先修 contract 与数据前提，再修页面末梢。**
 
@@ -737,39 +376,3 @@ Skill 仍可执行，但必须明确标注：
 - 只罗列工具名
 - 只做页面层吐槽
 - 在没有证据时断言"这是 bug"
-
----
-
-## P. 一个理想的最终目标
-
-这个 Skill 的最终目标不是"替人看一遍代码"，而是帮助团队建立一套长期有效的质量防线：
-
-- 静态层：Type / lint / schema / token / route contract
-- 数据层：sync / init / backfill / field completeness
-- 组件层：Storybook + component test + visual test
-- 页面层：Playwright smoke + key flow + screenshot diff
-- Persona 层：不同用户的 dashboard/list/detail 验证
-- 治理层：同级页面规范、状态页规范、布局 primitive、单一事实来源
-
-当这些建立起来之后，Skill 的价值就从"一次性找问题"升级为：
-
-> **持续阻止逻辑冲突、contract 漂移、数据前提缺口和设计漂移再次进入主分支。**
-
----
-
-## Q. 推荐的首轮落地动作（给实际项目）
-
-如果这是一个正在开发中的内部 Web App，建议第一轮只做下面 10 件事：
-
-1. 打开 TypeScript strict（或尽量接近 strict）
-2. 建立 API / form / UI 共用 schema 映射
-3. 补 route / response shape contract smoke
-4. 补 React hooks lint 与核心 ESLint 规则
-5. 建立设计 token 文件，停止新增硬编码视觉值
-6. 给核心共享组件补 Storybook stories
-7. 给 Dashboard / 列表 / 详情做 Playwright smoke
-8. 建立关键字段完整度检查（如城市、state、最近拜访）
-9. 建立最小 persona matrix（owner / 普通成员 / 弱数据用户）
-10. 固定 layout/header/form/table 规范与审计输出模板
-
-这样比"先写 300 个测试"更容易真正控住质量。

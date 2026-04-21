@@ -20,6 +20,11 @@ LOCAL_TEST_SKILLS="$SCRIPT_DIR/../skills-source/test"
 
 # ── 自动检测 Cowork 全局 skills 目录 ──────────────────────────────────────────
 detect_global_skills() {
+  # 首选：Claude Code canonical skills 路径
+  local canonical="$HOME/.claude/skills"
+  if [ -d "$canonical" ]; then echo "$canonical"; return; fi
+
+  # 回退：Cowork 会话目录下的 symlink
   local base="$HOME/Library/Application Support/Hong Cowork/claude-sessions"
   if [ ! -d "$base" ]; then echo ""; return; fi
 

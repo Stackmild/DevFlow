@@ -362,24 +362,3 @@ CHECKPOINT: System layer complete — {n} token categories, {n} custom component
 > Section 20 是质量元数据，不是视觉规范。Phase F.5 backfill 不得将其写入 VISUAL-SYSTEM.md。
 
 详细模板见 `templates/design-spec.md`。
-
----
-
-## H. Changelog
-
-| 变更 | V1 | V2 | V2.6 |
-|------|-----|-----|------|
-| 定位 | 视觉系统生成器 | 有风格路由能力的产品前端设计师 | **4-Phase Workflow Gate + Package Contract** |
-| 流程结构 | 线性步骤 | 10 步线性 | **4-Phase 阻断式**（Diagnosis → North-Star → System → Critique） |
-| 默认风格 | 五词预设 | 已删除，从 route 产出 | 同 V2 |
-| Route Selection | 无 | Step 1.5 强制 | Phase 1 强制 + 退化预判 |
-| North-Star | 无 | 无 | **Phase 2 硬 gate**：未完成不得进入系统层 |
-| Rubric | 无 | 无 | **8 维度**（+Route Fidelity, +Iteration Readiness）+ evidence basis |
-| Hard Fail | 无 | 无 | **5 条**：HF-1~5，任一触发阻断 |
-| Hard Checks | 无 | 无 | **8 项**（6 Blocking + 2 Quality）+ HC→HF 映射 |
-| Anti-Pattern | 无 | 无 | **4 段式纠偏**（Signal/Why/Fix/Poka-yoke）+ 负向约束优先 |
-| Real Content | 无 | 无 | **North-Star 禁止 placeholder** |
-| Package | 无 | 无 | **YAML summary contract**（Section 20） |
-| 输出模板 | 9 节 | 15 节 | **20 节**（4-Phase 结构） |
-| 原则 | 1 条 | 5 条 | **8 条**（+质量标尺 +负向优先 +交付 contract） |
-| 支撑文件 | 1 template | 1 template | **8 支撑文件**（templates/reference/rubrics/checklists/examples） |

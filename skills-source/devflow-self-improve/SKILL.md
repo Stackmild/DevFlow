@@ -44,9 +44,12 @@ triggers:
 ```
 @DevFlow-self-improve                    — 标准触发（默认 Mode B：阶段性盘点 + 经验沉淀）
 @DevFlow-self-improve mode=A task=<id>  — Mode A：单任务复盘 + 经验沉淀
+@DevFlow-self-improve mode=A task=<id> log=/path/to/chat.md  — Mode A + 指定聊天记录
 @DevFlow-self-improve mode=B            — Mode B：阶段性治理盘点 + 经验沉淀
 @DevFlow-self-improve mode=B --refresh-baseline  — Mode B + 刷新基线
 ```
+
+> **`log=` 参数**：当自动会话发现找不到目标聊天记录时（如导出的 .md 文件、非标准存储路径），用 `log=` 手动指定。支持文件路径或目录路径（扫描目录下所有 .md/.jsonl 文件）。可指定多个，逗号分隔。
 
 ### 推荐使用场景
 1. 一批任务做完后，做一次阶段性沉淀
@@ -64,6 +67,9 @@ triggers:
 ```bash
 # Mode A（单任务）
 node scripts/self-improve.mjs --task <task_id>
+
+# Mode A + 指定聊天记录（自动会话发现找不到时使用）
+node scripts/self-improve.mjs --task <task_id> --log /path/to/chat.md
 
 # Mode B（全量，默认）
 node scripts/self-improve.mjs

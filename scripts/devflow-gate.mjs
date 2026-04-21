@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // devflow-gate.mjs — DevFlow v2 薄控制层（半硬闸门）
-// 5 actions: enter_phase / post_gate3_write / complete_task / dispatch_skill / present_gate
+// 6 actions: enter_phase / post_gate3_write / complete_task / dispatch_skill / present_gate / transition
 // Zero npm dependencies. ~320 lines total across all modules.
 
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
@@ -11,6 +11,7 @@ import { check as checkPostGate3 } from './lib/checks/post-gate3.mjs';
 import { check as checkCompleteTask } from './lib/checks/complete-task.mjs';
 import { check as checkDispatchSkill } from './lib/checks/dispatch-skill.mjs';
 import { check as checkPresentGate } from './lib/checks/present-gate.mjs';
+import { check as checkTransition } from './lib/checks/transition.mjs';
 
 // --- Argument parsing ---
 const args = process.argv.slice(2);
@@ -28,6 +29,7 @@ function usage() {
   node devflow-gate.mjs complete_task --task-dir <path>
   node devflow-gate.mjs dispatch_skill --task-dir <path> --skill <skill> --phase <phase>
   node devflow-gate.mjs present_gate --task-dir <path> --gate <1|2|3>
+  node devflow-gate.mjs transition --task-dir <path> --from <phase> --to <phase>
 
 Actions:
   enter_phase        Check if ORC can enter a new phase
@@ -35,6 +37,7 @@ Actions:
   complete_task      Check if ORC can mark task as completed
   dispatch_skill     Check if ORC can dispatch a sub-agent skill (V6.0)
   present_gate       Check if ORC can present a Human Gate (V6.0)
+  transition         Atomically transition between phases (write events + update task.yaml)
 
 Exit codes:
   0 = allowed
@@ -43,7 +46,7 @@ Exit codes:
   process.exit(2);
 }
 
-if (!action || !['enter_phase', 'post_gate3_write', 'complete_task', 'dispatch_skill', 'present_gate'].includes(action)) {
+if (!action || !['enter_phase', 'post_gate3_write', 'complete_task', 'dispatch_skill', 'present_gate', 'transition'].includes(action)) {
   usage();
 }
 
@@ -96,6 +99,14 @@ try {
       result = checkPresentGate(resolvedTaskDir, gate, eventsData);
       break;
     }
+    case 'transition': {
+      const from = getArg('from');
+      const to = getArg('to');
+      if (!from) { console.error('Error: --from is required for transition'); process.exit(2); }
+      if (!to) { console.error('Error: --to is required for transition'); process.exit(2); }
+      result = checkTransition(resolvedTaskDir, from, to, eventsData);
+      break;
+    }
   }
 } catch (err) {
   console.error(`Script error: ${err.message}`);
@@ -118,13 +129,15 @@ if (result.allowed) {
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const permit = { ...result, checked_at: new Date().toISOString() };
     const params = result.params || {};
-    const discriminator = params.skill
-      ? `-${params.skill}`
-      : params.gate
-        ? `-gate-${params.gate}`
-        : params.phase
-          ? `-${params.phase}`
-          : '';
+    const discriminator = params.from_phase
+      ? `-${params.from_phase}-${params.to_phase}`
+      : params.skill
+        ? `-${params.skill}`
+        : params.gate
+          ? `-gate-${params.gate}`
+          : params.phase
+            ? `-${params.phase}`
+            : '';
     const permitName = `${action}${discriminator}-${ts}.json`;
     writeFileSync(join(permitsDir, permitName), JSON.stringify(permit, null, 2));
   } catch {
