@@ -361,13 +361,3 @@ anomaly type=A17, severity=High（冻结但无冲突的假 snapshot 危害等于
 
 ⚠️ D 项是 CHECK-20 的核心：最终 pre-gate 结论必须和实际流程行为一致。
 ⚠️ CHECK-20 只验证执行记录、schema 一致性和语义矛盾；不在此处重复 PG1/PG2/PG3 的 27 项明细。PG 明细的唯一权威源是 `protocols/pre-gate-self-check.md`。
-
----
-
-## 未来扩展路径
-
-```
-Phase-Driven v4.6（当前）: 20 项 CHECK（post-run 审计 + pre-gate 前移检查闭环）
-Stage 3: + policy flagging（Enforceable Checks 自动评估）
-Stage 4: + during-run 实时监控
-```

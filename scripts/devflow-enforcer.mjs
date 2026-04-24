@@ -19,6 +19,7 @@ import {
   hasContinuationDecision,
   resolveTaskFromPath,
   resolveTaskGlobalScan,
+  checkStateConsistency,
 } from './lib/state-reader.mjs';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -28,6 +29,19 @@ const SCRIPT_DIR = dirname(__filename);
 const DEVFLOW_ROOT = resolve(SCRIPT_DIR, '..');
 const GATE_SCRIPT = join(SCRIPT_DIR, 'devflow-gate.mjs');
 const STATE_DIR = join(DEVFLOW_ROOT, 'orchestrator-state');
+
+function collectStateDirs() {
+  const dirs = [];
+  if (existsSync(STATE_DIR)) dirs.push(STATE_DIR);
+  const cwd = process.cwd();
+  const cwdStateDir = join(cwd, 'orchestrator-state');
+  if (cwdStateDir !== STATE_DIR && existsSync(cwdStateDir)) {
+    dirs.push(cwdStateDir);
+  }
+  return dirs;
+}
+
+const ALL_STATE_DIRS = collectStateDirs();
 
 // ── Stdin + args ──────────────────────────────────────────────────────────────
 
@@ -148,7 +162,7 @@ function handlePreWrite(rawToolInput) {
   if (!filePath) return allow();
 
   // Resolve task from file path (P1 → P2 → P3, no P4)
-  const task = resolveTaskFromPath(filePath, STATE_DIR);
+  const task = resolveTaskFromPath(filePath, ALL_STATE_DIRS);
   if (!task) return debug(`no task matched for write path ${filePath}`); // Not a DevFlow-related write
 
   // ── 1B. project_path writes — hard deny after Gate 3 without continuation ──
@@ -239,6 +253,16 @@ function handlePreWrite(rawToolInput) {
     return output(runGateCheck('post_gate3_write', task.dir, ['--target-path', filePath]));
   }
 
+  // Nudge: change-package written → remind D.2 must follow
+  if (relPath.match(/^artifacts\/change-package-.*\.yaml$/)) {
+    return info(
+      'DevFlow Nudge: change-package 已产出。' +
+      '根据 write-through-actions.md §Sub-agent Return Continuity Protocol，' +
+      '下一步必须：routing-decision-D → handoff-D2 → dispatch reviewer(s)。' +
+      '不得跳过 D.2 直接进入 Gate 3 或 Phase F。'
+    );
+  }
+
   return allow();
 }
 
@@ -246,8 +270,19 @@ function handlePreWrite(rawToolInput) {
 
 function handleUserPrompt() {
   // P4: global scan for in_progress tasks
-  const task = resolveTaskGlobalScan(STATE_DIR);
+  const task = resolveTaskGlobalScan(ALL_STATE_DIRS);
   if (!task) return allow();
+
+  // Layer 2: state consistency check (omission detection — SC-1 through SC-4)
+  const consistency = checkStateConsistency(task.dir);
+  if (consistency.issues.length > 0) {
+    return info(
+      `⚠️ DevFlow State Check: 任务 ${task.id} 状态异常\n` +
+      consistency.issues.map(i => `  - ${i}`).join('\n')
+    );
+  }
+
+  // Layer 1: Gate 3 continuation enforcement (existing)
   if (!hasGate3Accept(task.dir)) return allow();
   if (hasContinuationDecision(task.dir)) return debug(`user prompt observed; continuation already present for ${task.id}`);
 

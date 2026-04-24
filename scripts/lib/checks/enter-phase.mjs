@@ -105,6 +105,17 @@ export function check(taskDir, targetPhase, { events, corruptLineCount, warnings
 
   // --- Check 4: No regression (unless legal backflow) ---
   const currentPhase = currentPhaseFromEvents(events);
+
+  // --- Check 4.5: project_path empty warning (external project P2 match) ---
+  if (phase === 'phase_a' || phase === 'phase_b') {
+    if (!taskYaml.project_path && taskYaml.devflow_root && taskYaml.devflow_root !== process.cwd()) {
+      warnings.push(
+        'project_path 为空且 devflow_root 指向外部目录 — enforcer P2 路径匹配将失败，' +
+        '建议在 task.yaml 中填写 project_path 指向项目根目录'
+      );
+    }
+  }
+
   if (currentPhase && PHASE_ORDER[currentPhase] && PHASE_ORDER[phase] < PHASE_ORDER[currentPhase]) {
     // Regression detected — check if legal backflow
     let backflowAllowed = false;
