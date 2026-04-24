@@ -17,6 +17,9 @@ devflow-config.yaml
 # === 本地运行时生成文件 ===
 reference/regression-known-issues.yaml
 
+# === 本地规划文档 ===
+BACKLOG.md
+
 # === 归档 ===
 归档.zip
 
