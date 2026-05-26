@@ -45,17 +45,27 @@ DevFlow/
 │   └── devflow-self-evaluation-guide.md
 ├── scripts/
 │   ├── sync-skills.sh           # Skill 维护者同步工具
-│   ├── devflow-gate.mjs         # 薄控制层主入口（V6.0，6-action）
-│   ├── devflow-enforcer.mjs     # Hook 路由器（Phase 1 自动执行层）
+│   ├── devflow-gate.mjs         # 薄控制层主入口（v6.1，9-action）
+│   ├── devflow-enforcer.mjs     # Hook 路由器（PreToolUse/PostToolUse/UserPromptSubmit）
+│   ├── incremental-auditor.mjs  # phase 边界增量审计
+│   ├── lint-naming.mjs          # canonical 命名检查
+│   ├── smoke-devflow-hardening.mjs # v6.1 hardening smoke tests
 │   └── lib/
 │       ├── state-reader.mjs     # State store 读取工具 + enforcer 辅助函数
+│       ├── atomic.mjs           # 文件锁 helper
+│       ├── journal.mjs          # transition journal helper
+│       ├── phase-aliases.mjs    # legacy phase alias normalize
 │       └── checks/              # Gate action 检查模块
+│           ├── bootstrap.mjs
 │           ├── enter-phase.mjs
 │           ├── post-gate3.mjs
 │           ├── complete-task.mjs
 │           ├── dispatch-skill.mjs
-│           └── present-gate.mjs
-└── reference/                   # 系统参考文档（同前）
+│           ├── dispatch-skill-task.mjs
+│           ├── finalize-dispatches.mjs
+│           ├── present-gate.mjs
+│           ├── validate-inputs.mjs
+│           └── verify-state.mjs
 ```
 
 ## 本地目录（.gitignored，各自维护）
@@ -70,9 +80,10 @@ DevFlow/
 │       ├── artifacts/           # 各阶段产出
 │       ├── issues/              # issue 记录
 │       ├── decisions/           # 人类决策记录（gate-1/2/3.yaml）
-│       ├── handoffs/            # 外部交接文件
+│       ├── handoffs/            # handoff packet，文件名 = {handoff_id}.yaml
 │       ├── monitor/             # state-auditor 审计产出
-│       ├── .permits/            # devflow-gate 通过记录（V5.0，可选证据）
+│       ├── .permits/            # devflow-gate / dispatch / transition 硬证据
+│       ├── .journal/            # transition crash recovery journal
 │       ├── changelog.md         # 追加式日志（人类可读）
 │       └── events.jsonl         # 结构化事件日志（canonical 时序记录）
 ├── projects/                    # 你的项目代码（内部项目）
@@ -82,14 +93,14 @@ DevFlow/
 
 > **外部 repo 模式**：如果在 DevFlow 目录外的独立 repo 中调用 orchestrator，Phase A.0 会通过 `devflow-config.yaml` 自动发现 devflow_root，并将 `project_path` 指向外部 repo。整个任务生命周期内 project_path 不变。
 
-## 工作流（Phase-Driven v4）
+## 工作流（Phase-Driven v6.1）
 
 DevFlow 的核心是 **Phase（阶段）**，不是 Skill。每个阶段定义了"做什么"，orchestrator 根据任务类型自动选择合适的 skill 去执行。
 
 ```
 @dev-orchestrator {任务描述}
   ↓
-Phase A: 任务定义 + 外部/内部 repo 识别（A.0）+ 任务类型判断
+Phase A: bootstrap + 任务定义 + 外部/内部 repo 识别（A.0）+ 任务类型判断
   ↓
 Phase B: 产品分析（PM） + Roadmap 绑定
   → Gate 1：方向确认（GO / ADJUST / DEFER-TASK / PAUSE）
@@ -99,13 +110,17 @@ Phase C: 设计阶段（按需调度：architect → backend → interaction →
   → Gate 2：Scope & 架构确认（PROCEED / RESCOPE / PAUSE）
   ↓
 Phase D（不可分割的三步）：
-  D.1 执行（full-stack-developer → change-package 必填）
-  D.2 审查（code-reviewer + 条件审查员，基于 scope_flags 路由）
-  D.3 收尾
+  phase_d_1 / D.1 执行（full-stack-developer → change-package 必填）
+  phase_d_2 / D.2 审查（code-reviewer + 条件审查员，基于 scope_flags 路由）
+  phase_d_3 / D.3 收尾
   → Gate 3：最终验收（ACCEPT / REVISE / PAUSE）
   ↓
 Phase F: 收尾（known_gaps 归集 → ROADMAP/DEFERRED 回填 → state-auditor 可选）
 ```
+
+Canonical phase 名：`phase_a`, `phase_b`, `phase_c`, `phase_d_1`, `phase_d_2`, `phase_d_3`, `phase_f`。读取端兼容 legacy `phase_d`，写入端只允许 canonical。
+
+新任务必须由 `bootstrap` 初始化，`task.yaml` 必填：`task_id`, `project_path`, `devflow_root`, `protocol_version: 2`, `status`, `current_phase`, `started_at`, `module_slug`。
 
 ### 各阶段的 Skill 调度
 
@@ -172,42 +187,51 @@ DevFlow 不是纯串行流程，每个 Gate 和审查节点都支持回流：
 
 Phase F 的 state-auditor 仍作为 post-run 完整审计（20 项 CHECK），其中 CHECK-20 会验证 pre-gate self-check 是否真的执行了——形成"前置拦截 + 事后审计"的双保险。
 
-### devflow-gate 薄控制层（V6.0）
+### devflow-gate 薄控制层（v6.1）
 
 Pre-Gate Self-Check 是 state auditing（事后审计）——如果 ORC 直接跳过 Gate 本身，这些检查根本不会运行。
 
-V6.0 将 `scripts/devflow-gate.mjs` 从 3-action 扩展到 **6-action**，覆盖出口拦截（原 V5.0）、入口门禁（V6.0 新增）和原子转换三层：
+v6.1 将 `scripts/devflow-gate.mjs` 扩展为 **9-action**，覆盖初始化、入口门禁、Task spawn 证据、Gate 展示、phase 原子转换、状态对账、PostToolUse fallback 和 closeout：
 
 | 动作 | 何时调用 | 防什么 |
 |------|---------|--------|
+| `bootstrap --task-id {id} --project-path {path} --devflow-root {path} --module-slug {slug}` | 任务第一步 | taskdir / task.yaml / events / permits 未初始化 |
 | `enter_phase --phase {P}` | 写 `phase_entered` 事件之前 | Phase 跳过（如跳过 Phase C 直接进 D） |
 | `post_gate3_write --target-path {path}` | Gate 3 ACCEPT 后写非 Phase F 允许文件前 | Gate 3 后系统逃逸（ad-hoc 写入） |
-| `complete_task` | 写 `task.yaml status=completed` 之前 | 假 closeout（缺 events、有 open blocker） |
+| `complete_task` | closeout 时 | 假 closeout；成功后原子写 `status: completed` + `completed_at` |
 | `dispatch_skill --skill {skill} --phase {phase}` | 构造 handoff-packet 之前（Template A/B Step 0） | 缺前置 artifact 就 dispatch（如无 change-package 就发 reviewer） |
 | `present_gate --gate {N}` | 向用户展示 Gate N 之前（Template C Step 0） | 跳过 pre-gate self-check 直接展示 Gate；上游 dispatch 未经门禁 |
 | `transition --from {P1} --to {P2}` | Phase 切换时（Template C Step 4a） | 状态碎片化（手写漏写 events/task.yaml） |
+| `verify_state --task-dir {path}` | 每个非 bootstrap gate action 前 | D1-D7 状态机漂移 |
+| `finalize_dispatches --task-dir {path} [--force]` | gate action 前自动执行 | Cowork Agent tool 不触发 PostToolUse，dispatch 授权无法自动 finalize |
 
-这是**半硬闸门**：调用了 → 脚本给出 machine-readable ALLOW/BLOCK + 自动写 `.permits/` 证据文件；绕过了 → permit 缺失，后续 gate / auditor 可发现（下游反压）。把需要记住的协议从 50+ 条压到 1 个命令 + 6 个 subcommand。
+这是**半硬闸门**：调用了 → 脚本给出 machine-readable ALLOW/BLOCK + 自动写 `.permits/` 证据文件；绕过了 → permit 缺失，后续 gate / `verify_state` / incremental auditor 会反压。v6.1 新任务中 permit 不是可选证据，permit 写失败会 BLOCK。
 
 ```bash
-# 示例：Phase C 完成后原子切换到 Phase D
-node scripts/devflow-gate.mjs transition --task-dir orchestrator-state/{task_id} --from phase_c --to phase_d
+# 示例：Phase C 完成后原子切换到 D.1
+node scripts/devflow-gate.mjs transition --task-dir orchestrator-state/{task_id} --from phase_c --to phase_d_1
 ```
 
 详见 `scripts/devflow-gate.mjs` 和 SKILL.md §Universal Gate Rule。
 
-### DevFlow Enforcer Phase 1（Hook 自动执行层，2026-04-12）
+### DevFlow Enforcer（Hook 自动执行层，v6.1）
 
-`devflow-enforcer.mjs` 通过 Cowork 的 PreToolUse / UserPromptSubmit hook 把关键写入点改成自动拦截，不再依赖 LLM 记得调用。它负责将写入事件路由到 `devflow-gate.mjs` 的对应 action，并在 Gate 3 后继续施加写入约束。
+`devflow-enforcer.mjs` 通过 Cowork `PreToolUse` / `PostToolUse` / `UserPromptSubmit` hook 把关键动作改成自动拦截，不再依赖 LLM 记得调用。hook 配置必须覆盖：
+
+- `PreToolUse` matcher: `Write|Edit|MultiEdit|Task`
+- `PostToolUse` matcher: `Task`
+- `UserPromptSubmit`
 
 `scripts/devflow-enforcer.mjs` 作为 hook 路由器，在以下写入前自动触发对应 gate action：
 
 | 写入路径模式 | 自动触发 | 失败行为 |
 |---|---|---|
+| Task tool spawn | 校验 `task_id` / `handoff_id` / handoff packet / input artifacts，写 `dispatch_authorized-*` + `skill_dispatch_authorized` | 新任务 **DENY**，legacy WARN |
 | `decisions/gate-{1,2,3}.yaml` | `present_gate --gate N` | **DENY** |
 | `task.yaml`（status=completed） | `complete_task` | **DENY** |
 | `handoffs/handoff-*`（含 skill_name） | `dispatch_skill --skill S --phase P` | **DENY** |
-| `events.jsonl`（含 phase_entered 事件） | `enter_phase --phase P` | **DENY** |
+| `events.jsonl` 手写 `phase_entered` / `phase_completed` | — | **DENY**；phase 事件只能由 `transition` 生成 |
+| `events.jsonl` 写入 `phase_completed` 后 | `incremental-auditor.mjs` 后台非阻塞运行 | 不阻塞当前写入 |
 | Gate 3 后 orchestrator-state/ 任意写入 | `post_gate3_write` | **DENY** |
 | Gate 3 后写入 project_path 且无 continuation | — | **DENY**（continuation_required） |
 
@@ -217,6 +241,8 @@ Active Task Resolution 使用 4 级优先级（path extract → project_path mat
 - **状态一致性检查**（SC-1~SC-4）：检测 task.yaml/events.jsonl 漂移、gate decision/event 不一致、Phase D 产出缺失
 - **change-package 提醒**：PreToolUse 拦截 `artifacts/change-package-*.yaml` 写入时，提示 D.2 审查流程
 
+Cowork Agent tool 当前不触发 PostToolUse。DevFlow 通过 `finalize_dispatches --force` fallback 在 gate action 前补齐 `dispatch_skill-*` permit 和 `skill_dispatched` event。
+
 **Phase 1 已知边界**：检查 continuation *存在性*，不检查 continuation type 与写入路径的兼容性（NON-CODE/RECORD-STOP 类型不应允许源码写入）。此细粒度校验留 Phase 2。
 
 **当前已硬化的门禁**：
@@ -224,6 +250,8 @@ Active Task Resolution 使用 4 级优先级（path extract → project_path mat
 - `present_gate`：Gate 1/2/3 前置决策 + 必需 artifact + 上游 permit backpressure
 - `complete_task`：Gate 3、Phase D/F events、open blockers、permit/event 一致性
 - `dispatch_skill`：稳定 prerequisite 硬拦；设计引用缺失仍保留 warning，不升为 block
+- `verify_state`：D1-D7 状态机一致性检查；critical issue BLOCK 后续 gate action
+- `finalize_dispatches`：PostToolUse fallback；幂等 finalize `dispatch_authorized-*`
 
 ## 两层持久化
 
@@ -247,9 +275,29 @@ Phase B 自动读取 ROADMAP 并将当前任务绑定到里程碑；Phase F 完�
 - **task.yaml** — 当前状态快照（最后更新）
 - **artifacts/** — 各阶段产出（设计文档、实现报告、审查报告）
 - **decisions/** — 所有 Gate 的人类决策记录
+- **handoffs/** — sub-skill handoff packet，文件名为 `{handoff_id}.yaml`
 - **issues/** — 审查中发现的问题
+- **.permits/** — bootstrap / transition / gate / dispatch 证据链
+- **monitor/** — incremental audit 和 Task spawn 观测输出
+- **.journal/** — transition crash recovery journal
 
-**写入顺序**：events.jsonl 先落 → artifact/decision 文件 → task.yaml 最后更新。
+**写入规则**：phase 事件只能由 `transition` 写入；`transition` 在锁内追加 `events.jsonl` 并原子更新 `task.yaml.current_phase` / `completed_phases`。普通 artifact/decision 仍先落事实，再更新 snapshot。
+
+### v6.1 状态对账与增量审计
+
+`verify_state` 在每个非 bootstrap gate action 前自动执行，D1-D7：
+
+| Check | 含义 |
+|---|---|
+| D1 | `phase_a` 但项目产出已有多个 spec |
+| D2 | Gate summary 存在但 gate decision 缺失 |
+| D3 | 非 paused 任务长时间无事件 |
+| D4 | dispatch authorized 长期未 finalized |
+| D5 | 合规自宣称与 handoff/permit 证据矛盾 |
+| D6 | finalized dispatch permit 数与 `skill_dispatched` event 不一致 |
+| D7 | `task.yaml.current_phase` 与最新 `phase_entered` 不一致 |
+
+`incremental-auditor.mjs` 在 `phase_completed` 后非阻塞运行，输出 `monitor/audit-incremental-{phase}-{seq}.yaml`。它检查 events 解析、snapshot drift、dispatch residue、permit/event 一致性、Gate decision/event 一致性、handoff 数、open blocker、required artifact、closeout 证据和 manual bypass。
 
 ## 执行模式（三分）
 
@@ -265,7 +313,7 @@ Phase B 自动读取 ROADMAP 并将当前任务绑定到里程碑；Phase F 完�
 - **修订三档制**——绿区（自动）→ 黄区（warning）→ 红区（强制停止）
 - **硬上线限制**——破坏性 migration、权限变更、大 schema 变更必须标注 ⚠️
 - **审查独立性**——orchestrator 不能自我审查（铁律 #9）
-- **状态写入顺序**——events.jsonl 先落 → artifact/decision → task.yaml 最后更新
+- **状态写入顺序**——phase 切换必须走 `transition` 原子写入；普通 artifact/decision 先落事实，再更新 snapshot
 - **Skill 行数上限 500 行**——每个 SKILL.md 的 budget 为 500 行。任何 skill 若需超过 500 行，必须先与用户讨论并确认，不得自行扩展。当前超限 skill 的瘦身计划见 git branch `skill-slim-2026-04`
 
 ## Schema Signal Patch（2026-04-05）
@@ -318,7 +366,8 @@ verification_boundary:
    > 请帮我安装 DevFlow。GitHub 仓库地址：https://github.com/Stackmild/DevFlow.git
    > 请克隆到当前目录，然后把 skills-source/ 下的所有 skill 安装为全局 skill。
 4. Cowork 完成后，重启 Cowork 或 toggle skills
-5. 输入 `@dev-orchestrator {你的任务描述}` 启动工作流
+5. 确认 Cowork hook 已注册到 `scripts/devflow-enforcer.mjs`（PreToolUse / PostToolUse / UserPromptSubmit）
+6. 输入 `@dev-orchestrator {你的任务描述}` 启动工作流
 
 > orchestrator 会自动创建 `orchestrator-state/{task_id}/` 目录管理任务状态。
 

@@ -2,13 +2,37 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Edit",
-        "command": "node \"/Users/yfguo/Documents/资管文件/AI Incorporation/Development & Coding Workflow/scripts/devflow-enforcer.mjs\" --event PreToolUse"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/yfguo/Documents/资管文件/AI Incorporation/Development & Coding Workflow/scripts/devflow-enforcer.mjs\" --event pre-write",
+            "timeout": 5
+          }
+        ],
+        "matcher": "Write|Edit|MultiEdit|Task"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/yfguo/Documents/资管文件/AI Incorporation/Development & Coding Workflow/scripts/devflow-enforcer.mjs\" --event post-task",
+            "timeout": 5
+          }
+        ],
+        "matcher": "Task"
       }
     ],
     "UserPromptSubmit": [
       {
-        "command": "node \"/Users/yfguo/Documents/资管文件/AI Incorporation/Development & Coding Workflow/scripts/devflow-enforcer.mjs\" --event user-prompt"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/yfguo/Documents/资管文件/AI Incorporation/Development & Coding Workflow/scripts/devflow-enforcer.mjs\" --event user-prompt",
+            "timeout": 3
+          }
+        ]
       }
     ]
   }
