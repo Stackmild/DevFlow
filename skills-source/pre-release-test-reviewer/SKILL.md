@@ -25,38 +25,31 @@ triggers:
 
 ## A. Skill 使命
 
-本 Skill 负责在 **版本发布前**，系统性发现那些**本来不必等到真实用户使用才暴露**的问题，尤其包括：
-
+在 **版本发布前**，系统性发现那些**本来不必等到真实用户使用才暴露**的问题：
 - 前后端接口路径、参数、返回结构不一致
 - 同一页面在不同用户/不同项目子集下表现不一致
-- 同步、初始化、回填作业未完成，导致页面逻辑"看似正常、实际无数据"
+- sync、初始化、回填作业未完成，导致页面"看似正常、实际无数据"
 - Dashboard / 列表页依赖的聚合字段缺失，导致分组、摘要、状态展示异常
 - 页面能渲染，但关键字段、关键动作、状态切换已经坏掉
 - 发布前测试资产存在，但没有形成真正的发布闸门
 
 目标不是追求测试数量，而是用 **最少但最硬的测试资产**，拦住最不该上线后才发现的问题。
 
----
-
 ## B. 适用场景
 
-### 适合
-
+**适合：**
 - 内部 Web App / 管理后台 / 工作流工具 / AI-native 工具
 - 小团队 / solo builder / 高度依赖 AI 协作开发
 - 企业统一登录 / 多用户可见性差异 / 按项目子集展示的产品
 - 依赖 sync、初始化、回填、状态生成的系统
 - 页面和功能仍在快速迭代，但不希望每次发版都出现基础问题
 
-### 不适合
-
+**不适合：**
 - 只讨论上线后的监控与告警
 - 只做性能压测
 - 只做安全渗透测试
 - 只修一个已知 bug 的代码实现
 - 只做产品功能优先级判断
-
----
 
 ## C. 本 Skill 的新增默认立场
 
@@ -68,305 +61,64 @@ triggers:
 | C4 | Dashboard/列表聚合字段是高风险面 | 分组/摘要/聚合统计/状态对象 → 默认专项检查；这类页面易"能渲染但内容全错" |
 | C5 | **必须**有小型人工验收矩阵 | 至少：2–3 关键用户 · 3–5 关键页面 · 1–2 关键动作 · 1 轮字段正确性检查 |
 
----
-
 ## D. 发布前五层闸门（Release Gates）
 
-## Gate 1. 代码静态层
-
-目标：先拦住最便宜、最明显的问题。
-
-至少包括：
-
-- TypeScript
-- ESLint
-- 基础 schema / contract 校验
-- 共享类型是否漂移
-- obvious dead code / wrong imports / missing exports
-
-若这一层失败，不应继续以浏览器测试来"碰运气"。
-
----
-
-## Gate 2. 接口契约层（API / Route Contract Smoke）
-
-目标：拦住"前端请求 A，后端提供 B"这类基础问题。
-
-发布前必须核对：
-
-- 页面实际调用的 route 是否存在
-- query 参数是否被后端支持
-- response shape 是否与前端读取一致
-- 是否需要 alias / backward compatibility
-- controller / service / shared types 是否一致
-
-专项关注：
-
-- `GET /path`
-- `POST /path`
-- alias 路由
-- response key 如 `items` / `records`
-- `projectId` / `userId` / filter 参数
-- 详情页聚合接口与页面依赖字段是否一致
-
-### 这一层的最低要求
-对每个关键页面，至少列出：
-
-- 页面依赖的 API 清单
-- 每个 API 的：
-  - path
-  - method
-  - query/body
-  - 关键 response 字段
-- 前端实际读取字段名
-
----
-
-## Gate 3. 数据就绪层（Data Readiness）
-
-目标：拦住"代码没坏，但数据没准备好"的问题。
-
-发布前必须检查：
-
-- 是否需要 sync 才能显示
-- 是否需要 init-state 才能展示 dashboard / status
-- 是否需要 backfill 才能显示关键字段
-- 关键摘要字段的非空率是否足够
-- 新同步项目是否会自动进入正确状态
-- 空值时是否是预期 fallback，而不是脏状态
-
-### 必查对象
-- `state` 表是否齐全
-- `bitableRecordId` / 外部主键是否存在
-- `headquartersCity` / status / owner / date 等关键字段完整度
-- 新项目是否自动初始化
-- 回填接口是否真实可调用，路径是否准确
-
-### 必须输出
-对关键字段做字段完整度统计，例如：
-
-- 项目总数
-- 非空数量
-- 空值数量
-- 非空率
-- 是否达发布门槛
-
----
-
-## Gate 4. 用户视角层（Persona Matrix）
-
-目标：拦住"我这里正常、同事那里全坏"的问题。
-
-默认至少定义 3 类 persona：
-
-1. **主验证用户**：产品 owner / 管理员 / 全量视角
-2. **普通业务用户**：项目子集不同、权限较窄
-3. **新同步/弱数据用户**：数据刚进来、字段缺失概率高
-
-### 每个 persona 至少验证
-- 登录成功
-- Dashboard / 首页
-- 列表页
-- 详情页
-- 1 个关键动作
-- 关键字段展示是否正确
-
-### 特别要求
-不要只比"项目有没有重叠"，而要比较：
-
-- 同一张表的同一关键字段，在各自项目子集上的完整度
-- 是否只是数据缺值导致 fallback
-- 还是用户视角下拿到的 payload / state / aggregation 有异常
-
----
-
-## Gate 5. 关键路径层（Critical Path）
-
-目标：真实验证最有价值的用户流程。
-
-默认先覆盖：
-
-- 打开应用并进入核心模块
-- Dashboard / 列表 / 详情
-- 关键读路径 1–2 条
-- 关键写路径 1–2 条
-- 至少一个状态切换
-- 至少一个"空值 fallback"场景
-
-### 关键路径不只是"页面打开"
-还必须验证：
-
-- 核心字段存在
-- 分组/聚合正确
-- 详情不报错
-- 常用动作按钮有效
-- 页面之间数据一致
-
-### Gate 5b：Embeds / iframe / WebView / 站内内容阅读（条件触发）
-
-**触发条件**：scope 中包含 iframe / embed / WebView / 就地阅读窗格 / 第三方内容嵌入
-
-> ⚠️ iframe 不是默认可信方案。当 scope 依赖 iframe，必须主动怀疑其可行性。
-
-**P0 检查**
-
-| 检查项 | 操作 | 失败处理 |
-|--------|------|---------|
-| change-package 中是否有 iframe/embed 可行性验证记录 | 检查 `self_review` 或 `upstream_contract_checks` 字段中是否包含"iframe 跨域可行性"相关项 | 无记录 → P0 blocker |
-| 降级方案是否已实现 | 检查代码中是否有 iframe load error fallback | 无 fallback → P0 blocker |
-
-> iframe 可行性验证的执行责任在 full-stack-developer（Phase D.1，记录在 change-package 中）；reviewer 的职责是确认验证已完成。**当 PM/Gate 1 已提示过 iframe 风险时，必须将 change-package 中有无验证记录作为 P0 检查点。**
-
-**P1 检查**
-
-- 加载失败时是否有可见 fallback UI（不是空白）
-- 是否有"打开原文"后备外链按钮
-- sandbox 属性是否过宽
-- 站内阅读与外跳逻辑是否冲突
-
----
-
-## E. 必测专项清单（针对你的场景）
-
-### E1. Dashboard / Copilot 专项
-至少验证：
-
-- bucket 分组是否正确
-- `未分类` 是否是合理 fallback，不是大面积脏数据
-- count 与项目集合一致
-- 摘要字段（城市、上次拜访、状态）显示正常
-- 不同 persona 下 bucket 不应出现明显逻辑异常
-
-### E2. 列表 → 详情 专项
-至少验证：
-
-- 列表能打开详情
-- 详情页依赖的聚合接口真实存在
-- worklog / related records / status 能显示
-- 前端读取字段名与后端返回一致
-- 详情页不依赖"碰巧存在的字段"
-
-### E3. 同步 / 初始化 / 回填 专项
-至少验证：
-
-- 新同步项目是否自动生成所需 state
-- 缺字段项目是否能被 backfill 修复
-- backfill 接口路径真实可用
-- 回填后页面无需改代码即可正确显示
-
-### E4. 字段完整度专项
-对以下字段做发布前检查：
-
-- 分组字段
-- 详情摘要字段
-- 关键状态字段
-- 时间字段
-- 外部主键 / 回填依赖字段
-
-输出：
-- 空值率
-- 风险等级
-- 是否阻断发布
-
----
-
-## F. 反模式（新增）
-
-### 反模式 1：只测"我自己的账号"
-后果：owner 正常，普通同事大量异常。
-
-### 反模式 2：只看页面能打开，不看关键字段对不对
-后果：UI 在，数据错。
-
-### 反模式 3：把"未分类"当作安全 fallback，不检查其占比
-后果：真实数据缺口被掩盖。
-
-### 反模式 4：修了 sync / backfill 代码，但不验证旧数据是否已补齐
-后果：代码看似正确，线上数据仍旧脏。
-
-### 反模式 5：接口加了 alias，但前端仍在读旧字段结构
-后果：页面局部继续空白。
-
-### 反模式 6：报告只写"已修复"，不做 persona 实测
-后果：开发自测通过，真实用户仍出问题。
-
----
-
-## G. 发布前默认工作流（重写版）
-
-### Step 1. 读取本次变更，列出影响面
-输出：
-- 改动模块
-- 影响页面
-- 影响 API
-- 影响数据表
-- 影响 persona
-
-### Step 2. 跑静态检查
-- typecheck
-- lint
-- shared types / obvious drift
-
-### Step 3. 做接口契约核对
-为关键页面列出：
-- 页面 → API 映射
-- API path / method / params / response keys
-- 前端实际读取字段
-
-### Step 4. 做数据就绪检查
-输出：
-- 是否需要 sync
-- 是否需要 init-state
-- 是否需要 backfill
-- 关键字段完整度统计
-- 发布前需执行的数据作业
-
-### Step 5. 做 persona matrix 验证
-至少验证 2–3 个用户：
-- 首页
-- 列表
-- 详情
-- 关键字段
-- 关键动作
-
-### Step 6. 跑关键路径 E2E / 人工冒烟
-重点覆盖：
-- Dashboard
-- 列表 → 详情
-- 关键状态切换
-- 空值 fallback
-
-### Step 7. 做变更驱动回归
-检查本次改动是否波及：
-- 旧页面
-- 共享组件
-- 数据聚合
-- 详情页依赖接口
-
-### Step 8. 输出发布结论
-必须包含：
-- 已验证范围
-- 未验证范围
-- 数据准备是否完成
-- persona 验证结果
-- Blocker / High / Medium / Low
-- Go / Go with risk / No-Go
-
----
+执行顺序：Gate 1 → 2 → 3 → 4 → 5。不跳层。
+
+| 层 | 目的 | 一句话 |
+|---|------|--------|
+| **Gate 1** | 代码静态层 | TypeScript / ESLint / schema 校验 / 共享类型漂移 / dead code |
+| **Gate 2** | 接口契约层 | 前端请求 A，后端是否提供 A？route / param / response shape 是否一致？ |
+| **Gate 3** | 数据就绪层 | 代码没坏，但数据没准备好？sync / init-state / backfill 是否已完成？ |
+| **Gate 4** | 用户视角层 | 我这里正常、同事那里全坏？至少 3 类 persona 验证 |
+| **Gate 5** | 关键路径层 | 真实验证最有价值的用户流程：Dashboard / 列表 / 详情 / 状态切换 |
+| **Gate 5b** | iframe/Embed 专项 | 条件触发：scope 含 iframe / embed / WebView 时必须额外验证 |
+
+详细检查项、专项关注、最低要求见 `skills-source/pre-release-test-reviewer/reference/test-checks.md`。
+
+## E. Required References
+
+执行审查前**必须**读取以下文件：
+
+| 路径 | 级别 | 说明 |
+|------|------|------|
+| `skills-source/pre-release-test-reviewer/reference/test-checks.md` | Always | **Gate 1~5 详细检查项、必测专项 E1~E4、Severity 分级、报告模板** |
+| `skills-source/dev-orchestrator/contracts/change-package.md` | Conditional | 验证 `verification_boundary` / `delivery_readiness` 时用 |
+
+未读取 `test-checks.md` → 不得产出 test report。
+
+## F. 反模式
+
+**你容易犯的错误：**
+1. **只测"我自己的账号"** → owner 正常，普通同事大量异常
+2. **只看页面能打开，不看关键字段对不对** → UI 在，数据错
+3. **把"未分类"当作安全 fallback，不检查其占比** → 真实数据缺口被掩盖
+4. **修了 sync/backfill 代码，但不验证旧数据是否已补齐** → 代码看似正确，线上数据仍旧脏
+5. **接口加了 alias，但前端仍在读旧字段结构** → 页面局部继续空白
+6. **报告只写"已修复"，不做 persona 实测** → 开发自测通过，真实用户仍出问题
+
+## G. 发布前默认工作流
+
+| 步骤 | 动作 | 产出 |
+|------|------|------|
+| 1 | 读取本次变更，列出影响面 | 改动模块 / 影响页面 / API / 数据表 / persona |
+| 2 | 跑静态检查 | typecheck / lint / shared types |
+| 3 | 做接口契约核对 | 页面→API 映射 / path/method/params/response keys |
+| 4 | 做数据就绪检查 | sync/init/backfill 需求 / 关键字段完整度 |
+| 5 | 做 persona matrix 验证 | 至少 2–3 个用户的 Dashboard/列表/详情/字段/动作 |
+| 6 | 跑关键路径 E2E / 人工冒烟 | Dashboard / 列表→详情 / 状态切换 / 空值 fallback |
+| 7 | 做变更驱动回归 | 旧页面 / 共享组件 / 数据聚合 / 详情页依赖接口 |
+| 8 | 输出发布结论 | 已验证范围 / 未验证范围 / 数据准备 / persona 结果 / Blocker→Low / Go/Go with risk/No-Go |
 
 ## H. 输出契约（Review Contract v2）
-
-> Contracted Execution 升级：reviewer 必须声明上下文来源、检查了哪些 contract、每条高严重度 finding 的证据。
-
-**结构化部分**（写入 `artifacts/pre-release-test-report.yaml`）：
 
 ```yaml
 reviewer: "pre-release-test-reviewer"
 review_type: "pre_release_test"
-context_pulled:                    # ⚠️ 必填——说明看了什么上下文
+context_pulled:
   - source: "artifact:{id}"
     purpose: "{为什么}"
-contracts_checked:                 # ⚠️ 必填——如果无 contract 可查，标注 no_contract_available
+contracts_checked:
   - contract: "{contract 名称}"
     source_artifact: "artifact:{id}"
     result: "aligned" | "deviated" | "no_contract_available"
@@ -376,13 +128,13 @@ risks_by_severity:
   high: []
   medium: []
   low: []
-missing_tests:                     # ⚠️ 必填
+missing_tests:
   - test: "{应测但未测}"
     reason_missing: "{原因}"
 repo_context_needed_but_missing:
   - context: "{需要但缺失}"
     impact: "{影响}"
-evidence:                          # ⚠️ blocker/high 必须附证据
+evidence:
   - finding_id: "{Blocker-1 等}"
     evidence_type: "code_ref" | "artifact_ref" | "behavior_observation"
     evidence: "{证据}"
@@ -390,91 +142,24 @@ verdict: "go" | "go_with_risk" | "no_go"
 known_gaps_if_accepted:
   - gap: "{gap}"
     risk: "{风险}"
-completion_status: "done"            # done | done_with_concerns | needs_context | blocked
-completion_note: ""                  # ≤ 2 句，空 = 无补充
+completion_status: "done"
+completion_note: ""
 ```
 
-**人类可读版**（写入 `artifacts/pre-release-test-report.md`）：
-
-```markdown
-# Pre-Release Test Review
-
-## 0. 上下文与 Contract 检查（Review Contract v2）
-### 上下文来源（context_pulled）
-- {看了什么，为什么}
-
-### Contract 检查（contracts_checked）
-- {检查了什么 contract，结果，证据}
-
-### 审查盲区（repo_context_needed_but_missing）
-- {需要但缺失的上下文 + 影响}
-
-## 1. Scope
-- Covered:
-- Not covered:
-
-## 2. Change Risk Summary
-- High-risk areas:
-- Shared components affected:
-- API/routes affected:
-- Data/state jobs affected:
-- Personas affected:
-
-## 3. Contract Smoke
-- Page → API mapping:
-- Route / param mismatches:
-- Response shape mismatches:
-
-## 4. Data Readiness
-- Required sync/init/backfill:
-- Critical field completeness:
-- Blocking data gaps:
-
-## 5. Persona Matrix
-| Persona | Dashboard | List | Detail | Key Fields | Key Action | Result |
-|---------|-----------|------|--------|------------|------------|--------|
-
-## 6. Findings（每条 Blocker/High 附 evidence）
-### Blocker
-| # | 问题 | 证据 |
-### High
-| # | 问题 | 证据 |
-### Medium
-### Low
-
-## 7. 缺失测试路径（missing_tests）
-- {应测但未测 + 原因}
-
-## 8. Recommended Tests / Fixes
-
-## 9. Release Recommendation
-- Decision: Go / Go with risk / No-Go
-- Reasoning:
-- Manual checks before release:
-- Required data jobs before release:
-- Known gaps if accepted:
-```
-
-**硬条件（同 code-reviewer Review Contract v2）**：
+**硬条件：**
 - `context_pulled` 必填且非空
 - `contracts_checked` 必填且非空
 - `evidence` 必须覆盖所有 blocker/high finding
-- `missing_tests` 必填
+- `missing_tests` 必填（即使为空也显式标注）
 - verdict 必须和 findings/risk 一致
 
----
+**同时输出人类可读版**（`artifacts/pre-release-test-report.md`），模板见 `reference/test-checks.md` §报告模板。
 
 ## I. 针对你当前团队的默认最低门槛
 
-适用于：
-- 3 人左右小团队
-- 内部工具
-- 企业统一登录
-- 多 persona
-- 有 sync / backfill / init-state
-- AI 协作开发较多
+适用于：3 人左右小团队 / 内部工具 / 企业统一登录 / 多 persona / 有 sync/backfill/init-state / AI 协作开发较多
 
-### 每次发版前最低门槛
+每次发版前最低门槛：
 1. **静态检查通过**
 2. **关键页面的 API contract smoke 过一遍**
 3. **关键数据字段完整度统计出一版**
@@ -482,8 +167,6 @@ completion_note: ""                  # ≤ 2 句，空 = 无补充
 5. **Dashboard / 列表 / 详情 走一轮**
 6. **若依赖 sync / init / backfill，必须确认作业已执行**
 7. **发布结论必须写 Go / Go with risk / No-Go**
-
----
 
 ## J. 一句话原则
 
