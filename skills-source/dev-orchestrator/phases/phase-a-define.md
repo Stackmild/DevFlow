@@ -181,7 +181,7 @@ TASK_TYPE: {new_feature / feature_iteration / bugfix / hotfix / review_existing 
 
 **不做**：problem framing、outcome definition、scope decision（这些在 Phase B）。
 
-写入 `artifacts/task-brief.md` + 更新 task.yaml（status=in_progress, current_stage=phase_b）。
+写入 `artifacts/task-brief.md` + 更新 task.yaml（status=in_progress, current_phase=phase_b）。
 
 ## Phase A Exit Checklist
 

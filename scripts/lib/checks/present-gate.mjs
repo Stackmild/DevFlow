@@ -4,7 +4,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { decisionExists, scanPermits, readTaskYaml } from '../state-reader.mjs';
+import { decisionExists, scanPermits, readTaskYaml, readYamlList, appendEvents } from '../state-reader.mjs';
 
 // Canonical reviewer skill names — used for Gate 3 report glob AND permit checks.
 // Only these skills produce *-report.yaml artifacts per review-report.md schema.
@@ -145,23 +145,49 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
     }
 
   } else if (gateNum === '2') {
-    // Design skill permits — WARN only (first round).
-    // NOTE: This is a COARSE check: "at least one design skill has a dispatch permit".
-    // It does NOT verify that every skill listed in routing-decision-C has a permit.
-    // Full per-skill validation (reading routing-decision-C and matching each matched_skill)
-    // is deferred to second round when routing patterns are stable enough to avoid false BLOCKs.
-    const DESIGN_SKILL_PREFIXES = [
-      'dispatch_skill-web-app-architect-',
-      'dispatch_skill-frontend-design-',
-      'dispatch_skill-backend-data-api-',
-      'dispatch_skill-webapp-interaction-designer-',
-      'dispatch_skill-component-library-maintainer-',
-    ];
-    const hasAnyDesign = permits.some(p => DESIGN_SKILL_PREFIXES.some(prefix => p.startsWith(prefix)));
-    if (!hasAnyDesign) {
-      warnings.push('No dispatch_skill permit found for any design skill in .permits/ — design skills should be dispatched through devflow-gate (WARN only; not verifying all routing-decision-C matched skills)');
+    // --- Fix 7: Gate 2 design skill permits — per-skill BLOCK validation ---
+    // Skip path: Phase C entirely skipped or Gate 2 itself skipped
+    const hasSkip = decisionExists(taskDir, 'gate-2-skip.yaml');
+    const phaseCSkipped = decisionExists(taskDir, 'phase-skip-phase_c') || decisionExists(taskDir, 'phase-skip-C');
+    if (hasSkip || phaseCSkipped) {
+      checksPass.push(hasSkip ? 'gate_2_skipped' : 'phase_c_skipped');
     } else {
-      checksPass.push('upstream_permit_design_coarse');
+      const rdPath = join(taskDir, 'decisions', 'routing-decision-C.yaml');
+      if (!existsSync(rdPath)) {
+        const isNewTask = taskYaml.protocol_version && Number(taskYaml.protocol_version) >= 2;
+        if (isNewTask) {
+          violations.push({
+            check: 'routing_decision_C',
+            severity: 'BLOCK',
+            detail: 'decisions/routing-decision-C.yaml not found — new tasks (protocol_version >= 2) require routing-decision-C before Gate 2',
+          });
+        } else {
+          warnings.push('decisions/routing-decision-C.yaml not found — legacy task, permitting Gate 2 with WARN');
+        }
+      } else {
+        const matchedSkills = readYamlList(rdPath, 'matched_skills') || [];
+        const skippedSkillsRaw = readYamlList(rdPath, 'skipped_skills') || [];
+        // Normalize skipped_skills (may be simple strings or "skill: name" objects)
+        const skippedSkills = skippedSkillsRaw.map(s => {
+          const m = s.match(/^skill:\s*(\S+)/);
+          return m ? m[1] : s;
+        });
+        const requiredSkills = matchedSkills.filter(s => !skippedSkills.includes(s));
+        const missing = [];
+        for (const skill of requiredSkills) {
+          const hasPermit = permits.some(p => p.startsWith(`dispatch_skill-${skill}-`));
+          if (!hasPermit) missing.push(skill);
+        }
+        if (missing.length > 0) {
+          violations.push({
+            check: 'upstream_permit_design',
+            severity: 'BLOCK',
+            detail: `Missing dispatch_skill permits for design skills: ${missing.join(', ')} — each matched_skill in routing-decision-C must have a permit in .permits/`,
+          });
+        } else {
+          checksPass.push('upstream_permit_design_per_skill');
+        }
+      }
     }
 
   } else if (gateNum === '3') {
@@ -246,6 +272,21 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
   }
 
   const allowed = violations.length === 0;
+
+  // Write gate_decision event on successful present_gate to keep events.jsonl in sync
+  if (allowed) {
+    try {
+      appendEvents(taskDir, [{
+        event_type: 'gate_decision',
+        payload: { gate: gateNum },
+        timestamp: new Date().toISOString(),
+        source: 'devflow-gate-present_gate',
+      }]);
+    } catch {
+      // Non-blocking: permit is canonical evidence; event is best-effort audit trail
+    }
+  }
+
   return {
     allowed,
     action: 'present_gate',

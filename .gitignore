@@ -16,6 +16,9 @@ devflow-config.yaml
 
 # === 本地运行时生成文件 ===
 reference/regression-known-issues.yaml
+monitor/
+.smoke-tmp/
+smoke-tests/
 
 # === 本地规划文档 ===
 BACKLOG.md

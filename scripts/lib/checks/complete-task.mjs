@@ -1,7 +1,7 @@
 // complete-task.mjs — Gate check: can ORC mark task as completed?
 // Prevents: fake closeout (V2.0: task.yaml says completed but events missing)
 
-import { findEvents, decisionExists, scanIssueBlockers, scanPermits } from '../state-reader.mjs';
+import { findEvents, decisionExists, scanIssueBlockers, scanPermits, updateTaskYamlFieldsAtomic } from '../state-reader.mjs';
 
 export function check(taskDir, { events, corruptLineCount, warnings: readWarnings }) {
   const violations = [];
@@ -16,13 +16,16 @@ export function check(taskDir, { events, corruptLineCount, warnings: readWarning
     checksPass.push('gate3_accept');
   }
 
-  // --- Check 2: phase_completed(phase_d) event exists ---
-  const phaseDCompleted = findEvents(events, 'phase_completed', { phase: 'phase_d' }).length > 0;
+  // --- Check 2: phase_completed(phase_d_3) event exists ---
+  // Accept legacy phase_d for grandfathered tasks, but new canonical phase is phase_d_3.
+  const phaseDCompleted =
+    findEvents(events, 'phase_completed', { phase: 'phase_d_3' }).length > 0 ||
+    findEvents(events, 'phase_completed', { phase: 'phase_d' }).length > 0;
   if (!phaseDCompleted) {
     if (corruptLineCount > 0) {
-      violations.push({ check: 'phase_d_completed', severity: 'BLOCK', detail: `phase_completed(phase_d) not found; events.jsonl has ${corruptLineCount} corrupt line(s) — cannot confirm Phase D completion` });
+      violations.push({ check: 'phase_d_completed', severity: 'BLOCK', detail: `phase_completed(phase_d_3) not found; events.jsonl has ${corruptLineCount} corrupt line(s) — cannot confirm Phase D completion` });
     } else {
-      violations.push({ check: 'phase_d_completed', severity: 'BLOCK', detail: 'phase_completed(phase_d) event not found in events.jsonl' });
+      violations.push({ check: 'phase_d_completed', severity: 'BLOCK', detail: 'phase_completed(phase_d_3) event not found in events.jsonl' });
     }
   } else {
     checksPass.push('phase_d_completed');
@@ -147,6 +150,19 @@ export function check(taskDir, { events, corruptLineCount, warnings: readWarning
   }
 
   const allowed = violations.length === 0;
+
+  // Fix B: snapshot task.yaml on successful closeout
+  if (allowed) {
+    try {
+      updateTaskYamlFieldsAtomic(taskDir, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      });
+    } catch {
+      // Non-blocking: permit file below is the canonical evidence; task.yaml is best-effort snapshot
+    }
+  }
+
   return {
     allowed,
     action: 'complete_task',

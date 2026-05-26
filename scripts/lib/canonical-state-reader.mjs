@@ -351,11 +351,13 @@ function canonicalizeArtifacts(taskDir, warnings) {
   if (files.length === 0) return { artifacts: [], coverage: 'none' };
 
   // Classify artifacts by phase based on naming conventions
+  // D sub-phases use phase_d_1 (execution), phase_d_2 (review), phase_d_3 (closeout)
   const PHASE_HINTS = {
     'task-brief': 'phase_a', 'product-spec': 'phase_b', 'routing-decision-B': 'phase_b',
     'architecture': 'phase_c', 'backend': 'phase_c', 'interaction': 'phase_c', 'frontend': 'phase_c',
-    'implementation': 'phase_d', 'change-package': 'phase_d', 'code-review': 'phase_d',
-    'consistency-audit': 'phase_d', 'prerelease': 'phase_d', 'review-completeness': 'phase_d',
+    'implementation': 'phase_d_1', 'change-package': 'phase_d_1',
+    'code-review': 'phase_d_2', 'consistency-audit': 'phase_d_2', 'prerelease': 'phase_d_2',
+    'review-completeness': 'phase_d_3',
   };
   const phaseFor = (name) => {
     for (const [hint, phase] of Object.entries(PHASE_HINTS)) {

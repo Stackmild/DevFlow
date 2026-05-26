@@ -1,7 +1,7 @@
 // state-reader.mjs — Read events.jsonl + scan decisions/ + issues/ for devflow-gate
 // Zero npm dependencies. Pure node:fs + node:path.
 
-import { readFileSync, existsSync, readdirSync, statSync, appendFileSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, statSync, appendFileSync, writeFileSync, renameSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -178,6 +178,68 @@ export function updateTaskYamlFields(taskDir, updates) {
   writeFileSync(p, content, 'utf8');
 }
 
+/**
+ * Atomic update of task.yaml fields using tmp + rename.
+ * Guarantees readers never see a partially written file.
+ */
+export function updateTaskYamlFieldsAtomic(taskDir, updates) {
+  const p = join(taskDir, 'task.yaml');
+  const tmp = p + '.tmp';
+  if (!existsSync(p)) return;
+  let content = readFileSync(p, 'utf8');
+  for (const [key, value] of Object.entries(updates)) {
+    const regex = new RegExp(`^(${key}:)\\s*.*$`, 'm');
+    if (regex.test(content)) {
+      content = content.replace(regex, `$1 "${value}"`);
+    } else {
+      content += `\n${key}: "${value}"`;
+    }
+  }
+  writeFileSync(tmp, content, 'utf8');
+  renameSync(tmp, p);
+}
+
+/**
+ * Read a YAML list value from a file. Handles the simple "- item" format
+ * used in DevFlow routing-decision files.
+ *
+ * Returns string[] or null if key not found / file missing.
+ */
+export function readYamlList(filePath, listKey) {
+  if (!existsSync(filePath)) return null;
+  const text = readFileSync(filePath, 'utf8');
+  const lines = text.split('\n');
+  let inList = false;
+  let baseIndent = -1;
+  const result = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const rawIndent = line.search(/\S/);
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#')) continue;
+    if (!inList) {
+      if (trimmed.startsWith(`${listKey}:`)) {
+        inList = true;
+        baseIndent = rawIndent;
+      }
+      continue;
+    }
+    // In list: stop when we hit a line at same or lower indent that is not a list item
+    if (rawIndent <= baseIndent && !trimmed.startsWith('-')) {
+      break;
+    }
+    if (trimmed.startsWith('-')) {
+      // Strip leading "-" and whitespace, then inline comment
+      let val = trimmed.slice(1).trim();
+      const hashIdx = val.indexOf('#');
+      if (hashIdx >= 0) val = val.slice(0, hashIdx).trim();
+      val = val.replace(/^["']|["']$/g, '');
+      if (val) result.push(val);
+    }
+  }
+  return result.length > 0 ? result : null;
+}
+
 // ── Enforcer helpers (devflow-enforcer.mjs) ─────────────────────────────────
 
 /**
@@ -267,7 +329,9 @@ export function checkStateConsistency(taskDir) {
   }
 
   // SC-3: Phase D + code artifacts exist but no change-package
-  if (task.current_phase === 'phase_d') {
+  // Normalize legacy phase_d to phase_d_1/d_2/d_3 for checks
+  const isPhaseD = task.current_phase === 'phase_d' || task.current_phase === 'phase_d_1' || task.current_phase === 'phase_d_2' || task.current_phase === 'phase_d_3';
+  if (isPhaseD) {
     const hasCP = artFiles.some(f => /^change-package-.*\.yaml$/.test(f));
     const hasImpl = artFiles.some(f => f.endsWith('-report.yaml') || f.includes('implementation'));
     if (!hasCP && hasImpl) {
@@ -276,7 +340,7 @@ export function checkStateConsistency(taskDir) {
   }
 
   // SC-4: Phase D + change-package exists but no reviewer report
-  if (task.current_phase === 'phase_d') {
+  if (isPhaseD) {
     const hasCP = artFiles.some(f => /^change-package-.*\.yaml$/.test(f));
     const reviewerReportPattern = /^(code-reviewer|webapp-consistency-audit|pre-release-test-reviewer|playwright-e2e-testing|e2e-visual-test)-report\.yaml$/;
     const hasReviewReport = artFiles.some(f => reviewerReportPattern.test(f));

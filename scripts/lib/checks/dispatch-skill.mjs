@@ -4,7 +4,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { findEvents, decisionExists } from '../state-reader.mjs';
+import { findEvents, decisionExists, appendEvents } from '../state-reader.mjs';
 
 /**
  * Read the latest change-package YAML from artifacts/ and check if scope_flags.ui = true.
@@ -103,10 +103,10 @@ const PREREQS = {
     detail: 'change-package-*.yaml not found in artifacts/ — change-package must exist before dispatching release-and-change-manager',
   },
   'state-auditor': {
-    check: 'event',
+    check: 'event_any_phase',
     event_type: 'phase_completed',
-    payload: { phase: 'phase_d' },
-    detail: 'phase_completed(phase_d) event not found — Phase D must complete before dispatching state-auditor',
+    phases: ['phase_d_3', 'phase_d'],
+    detail: 'phase_completed(phase_d_3) event not found — Phase D.3 must complete before dispatching state-auditor',
   },
   'product-manager': {
     check: 'artifact_exact',
@@ -171,6 +171,15 @@ export function check(taskDir, skill, phase, { events, warnings: readWarnings })
     }
     case 'event': {
       const found = findEvents(events, prereq.event_type, prereq.payload).length > 0;
+      if (!found) {
+        violations.push({ check: 'prerequisite_event', severity: 'BLOCK', detail: prereq.detail });
+      } else {
+        checksPass.push('prerequisite_event');
+      }
+      break;
+    }
+    case 'event_any_phase': {
+      const found = prereq.phases.some(phase => findEvents(events, prereq.event_type, { phase }).length > 0);
       if (!found) {
         violations.push({ check: 'prerequisite_event', severity: 'BLOCK', detail: prereq.detail });
       } else {
@@ -257,6 +266,21 @@ export function check(taskDir, skill, phase, { events, warnings: readWarnings })
   }
 
   const allowed = violations.length === 0;
+
+  // Write skill_dispatched event on successful dispatch to keep events.jsonl in sync with permits
+  if (allowed) {
+    try {
+      appendEvents(taskDir, [{
+        event_type: 'skill_dispatched',
+        payload: { skill, phase },
+        timestamp: new Date().toISOString(),
+        source: 'devflow-gate-dispatch_skill',
+      }]);
+    } catch {
+      // Non-blocking: permit is canonical evidence; event is best-effort audit trail
+    }
+  }
+
   return {
     allowed,
     action: 'dispatch_skill',

@@ -84,10 +84,12 @@
 | 26 | `known_gaps_collected` | audit |
 | 27 | `unknown_action_detected` | audit |
 | 28 | `closeout_blocked` | audit |
+| 29 | `skill_dispatch_authorized` | dispatch |
+| 30 | `skill_dispatch_failed` | dispatch |
 
 ### 禁止的别名
 
-以下是 V4.2 试点中观察到的非标名称。如果 orchestrator 产出这些名称 → protocol violation：
+以下是 V4.2/V4.3 试点中观察到的非标名称。如果 orchestrator 产出这些名称 → protocol violation（state-auditor CHECK-7 报 A7 anomaly）：
 
 | 非标名称 | 正确名称 | 说明 |
 |----------|---------|------|
@@ -95,6 +97,10 @@
 | `gate_b_accepted` | `gate_decision` | gate_decision 统一用于所有 Gate |
 | `phase_completed(phase_f)` 替代 task 完结 | `task_completed` | phase_completed 只记录 phase 级别完成，task 级别完成必须用 task_completed |
 | `phase_skip` | `phase_skipped` | 正确名称带 -ed 后缀（V4.3 试点发现） |
+| `skillDispatchAuthorized` / `skillDispatchFailed` | `skill_dispatch_authorized` / `skill_dispatch_failed` | 全小写 + 下划线分隔（V4.3 新增，state-auditor CHECK-7） |
+| `skill-dispatch-authorized` / `skill-dispatch-failed` | `skill_dispatch_authorized` / `skill_dispatch_failed` | kebab-case 非 canonical（V4.3 新增） |
+| `dispatch_authorized` / `skill_authorized` | `skill_dispatch_authorized` | 缩写/漏 "skill_" 前缀（V4.3 新增） |
+| `skill_dispatch_authorize` | `skill_dispatch_authorized` | 漏过去分词后缀 -ed（V4.3 新增） |
 
 ---
 
@@ -115,6 +121,8 @@
 |------------|------------------------|------|
 | `skill_dispatched` | skill_name, handoff_id, stage | sub-agent 被 spawn（关联 handoff-packet） |
 | `skill_completed` | skill, artifact, phase | sub-agent 执行完成 |
+| `skill_dispatch_authorized` | skill_name, handoff_id, auth_id | PreToolUse Task hook 通过授权；**不代表 sub-agent 已成功执行** |
+| `skill_dispatch_failed` | skill_name, handoff_id, auth_id, reason | PostToolUse Task 失败 / 取消；不触发 `skill_dispatched` |
 | `phase_completed` | phase | 一个 phase 整体完成 |
 | `phase_skipped` | skill_name, skip_reason | 设计 phase 被跳过 |
 

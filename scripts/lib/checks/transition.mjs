@@ -8,26 +8,29 @@ import {
   currentPhaseFromEvents,
   decisionExists,
   appendEvents,
-  updateTaskYamlFields,
+  updateTaskYamlFieldsAtomic,
   parseSimpleYaml,
 } from '../state-reader.mjs';
+import { withLock } from '../atomic.mjs';
+import { writeJournal, deleteJournalsForAction } from '../journal.mjs';
+import { normalizePhase } from '../phase-aliases.mjs';
 
-const PHASE_ORDER = { phase_a: 1, phase_b: 2, phase_c: 3, phase_d: 4, phase_f: 5 };
+const PHASE_ORDER = { phase_a: 1, phase_b: 2, phase_c: 3, phase_d_1: 4, phase_d_2: 5, phase_d_3: 6, phase_f: 7 };
 
 const GATE_FOR_PHASE = {
   phase_c: [['gate-1.yaml', 'gate-1']],
-  phase_d: [['gate-2.yaml', 'gate-2'], ['gate-2-skip.yaml', 'gate-2-skip']],
+  phase_d_1: [['gate-2.yaml', 'gate-2'], ['gate-2-skip.yaml', 'gate-2-skip']],
   phase_f: [['gate-3.yaml', 'gate-3'], ['gate-b.yaml', 'gate-b']],
 };
 
-const BACKFLOW = { ADJUST: 'phase_b', RESCOPE: 'phase_c', REVISE: 'phase_d' };
+const BACKFLOW = { ADJUST: 'phase_b', RESCOPE: 'phase_c', REVISE: 'phase_d_1' };
 
 export function check(taskDir, fromPhase, toPhase, { events, warnings: readWarnings }) {
   const violations = [];
   const warnings = [...readWarnings];
   const checksPass = [];
-  const from = fromPhase.startsWith('phase_') ? fromPhase : `phase_${fromPhase}`;
-  const to = toPhase.startsWith('phase_') ? toPhase : `phase_${toPhase}`;
+  const from = normalizePhase(fromPhase.startsWith('phase_') ? fromPhase : `phase_${fromPhase}`);
+  const to = normalizePhase(toPhase.startsWith('phase_') ? toPhase : `phase_${toPhase}`);
 
   // T-1: Both phases must be known
   if (!PHASE_ORDER[from] || !PHASE_ORDER[to]) {
@@ -48,7 +51,7 @@ export function check(taskDir, fromPhase, toPhase, { events, warnings: readWarni
       const decision = gd.payload?.decision?.toUpperCase();
       if (BACKFLOW[decision] === to) { isLegalBackflow = true; break; }
     }
-    if (!isLegalBackflow && to === 'phase_d') {
+    if (!isLegalBackflow && to === 'phase_d_1') {
       const continuations = findEvents(events, 'continuation_initiated');
       if (continuations.some(c => c.payload?.type === 're_enter_d')) isLegalBackflow = true;
     }
@@ -106,16 +109,32 @@ export function check(taskDir, fromPhase, toPhase, { events, warnings: readWarni
     };
   }
 
-  // ── All checks passed — atomic write ──
+  // ── All checks passed — journal + lock + atomic write ──
   const now = new Date().toISOString();
-  appendEvents(taskDir, [
+  const pendingEvents = [
     { event_type: 'phase_completed', payload: { phase: from }, timestamp: now, source: 'devflow-gate-transition' },
     { event_type: 'phase_entered', payload: { phase: to }, timestamp: now, source: 'devflow-gate-transition' },
-  ]);
+  ];
 
   const taskYaml = parseSimpleYaml(readFileSync(join(taskDir, 'task.yaml'), 'utf8'));
   const completedPhases = taskYaml.completed_phases ? `${taskYaml.completed_phases},${from}` : from;
-  updateTaskYamlFields(taskDir, { current_phase: to, completed_phases: completedPhases });
+  const beforeState = { current_phase: taskYaml.current_phase, completed_phases: taskYaml.completed_phases };
+
+  try {
+    withLock(taskDir, `transition_${from}_${to}`, () => {
+      writeJournal(taskDir, 'transition', beforeState, pendingEvents);
+      appendEvents(taskDir, pendingEvents);
+      updateTaskYamlFieldsAtomic(taskDir, { current_phase: to, completed_phases: completedPhases });
+      deleteJournalsForAction(taskDir, 'transition');
+    });
+  } catch (lockErr) {
+    return {
+      allowed: false, action: 'transition', params: { from_phase: from, to_phase: to },
+      reason: `Atomic transition failed: ${lockErr.message}`,
+      violations: [{ check: 'atomic_write', severity: 'BLOCK', detail: lockErr.message }],
+      warnings,
+    };
+  }
 
   return {
     allowed: true, action: 'transition', params: { from_phase: from, to_phase: to },

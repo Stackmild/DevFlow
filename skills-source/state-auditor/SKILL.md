@@ -361,3 +361,62 @@ anomaly type=A17, severity=High（冻结但无冲突的假 snapshot 危害等于
 
 ⚠️ D 项是 CHECK-20 的核心：最终 pre-gate 结论必须和实际流程行为一致。
 ⚠️ CHECK-20 只验证执行记录、schema 一致性和语义矛盾；不在此处重复 PG1/PG2/PG3 的 27 项明细。PG 明细的唯一权威源是 `protocols/pre-gate-self-check.md`。
+
+---
+
+## 增量模式（Fix 8）：Phase 边界轻量审计
+
+增量 auditor 不是 SKILL 被 spawn 的形式运行，而是由 enforcer 在 `events.jsonl` 写入 `phase_completed` 事件后**自动后台触发**。
+
+### 触发机制
+
+- **触发点**：enforcer 拦截到 `events.jsonl` 追加内容包含 `phase_completed` 事件
+- **执行方式**：`node scripts/incremental-auditor.mjs --task-dir {path} [--phase {phase}]`
+- **非阻塞**：使用 `spawn(detached)` 后台运行，超时 5 秒，失败不影响原写入
+- **输出路径**：`{taskDir}/monitor/audit-incremental-{phase}-{seq}.yaml`
+
+### 输出 Schema
+
+```yaml
+task_id: "{task_id}"
+phase: "{phase}"
+seq: {N}
+since: "{latest_event_timestamp}"
+checked_at: "{ISO8601}"
+status: pass | warn | critical
+critical_count: {N}
+warn_count: {N}
+issues:
+  - check: {check_name}
+    severity: critical
+    detail: "{description}"
+warnings:
+  - check: {check_name}
+    severity: warn
+    detail: "{description}"
+```
+
+### 10 项增量检查
+
+| # | 检查名 | 严重级别 | 说明 |
+|---|--------|---------|------|
+| 1 | `events_parse` | critical | events.jsonl 存在 JSON 解析失败行 |
+| 2 | `snapshot_drift` | warn | task.yaml.current_phase ≠ events.jsonl 最新 phase_entered |
+| 3 | `authorized_stale` | warn | dispatch_authorized permit 残留 >10 分钟未 finalize |
+| 4 | `dispatch_consistency` | warn | dispatch_skill permit 数 ≠ skill_dispatched 事件数 |
+| 5 | `gate_decision_consistency` | warn | gate-N.yaml 与 gate_decision 事件不一致 |
+| 6 | `handoffs_vs_dispatch` | warn | handoffs/ 数量与 skill_dispatched 事件数差距 ≥3 |
+| 7 | `open_blockers` | critical | Phase D/F 存在未解决 blocker |
+| 8 | `required_artifacts` | warn | 当前 phase 缺少必需 artifact（product-spec / implementation-scope / change-package） |
+| 9 | `completed_integrity` | critical | task.yaml.status=completed 但缺少 phase_f / gate3 closeout 证据 |
+| 10 | `manual_phase_bypass` | warn | phase 事件的 source 字段非 devflow-gate 或缺失 |
+
+### 与 Post-Run Audit 的区别
+
+| 维度 | 增量审计（Fix 8） | Post-Run 审计（原 20 项 CHECK） |
+|------|------------------|-------------------------------|
+| 触发时机 | 每 phase 完成后自动 | Gate 3 完成后手动 spawn |
+| 检查深度 | 10 项状态机/一致性快检 | 20 项完整审计（含 trace、orphan、risk 等） |
+| 阻断性 | 不阻断，只记录 | 不阻断，只记录 |
+| 消费方 | enforcer / verify_state 后续引用 | 人类审阅 + 治理复盘 |
+| 文件命名 | `audit-incremental-{phase}-{seq}.yaml` | `run-audit-{run_id}.{md,json}` |
