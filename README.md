@@ -145,6 +145,8 @@ Cowork Agent tool 当前不触发 PostToolUse。DevFlow 因此在 gate action �
 - `input_artifacts` 文件存在，size/hash 校验通过
 - 同一 `handoff_id` 已 finalized 后不能复用
 
+完整协议见 `skills-source/dev-orchestrator/protocols/spawn-via-handoff.md`。
+
 PreToolUse 通过后写：
 
 - `.permits/dispatch_authorized-{skill}-{auth_id}.json`

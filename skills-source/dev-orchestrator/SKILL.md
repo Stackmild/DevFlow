@@ -161,8 +161,6 @@ Sub-agent 返回后必须不间断完成从"收集产出"到"下一个合法暂�
 3. 更新 task.yaml live state（最后更新快照）
 ```
 
-不允许反过来（先推 task.yaml 再补 events）。
-
 ### 捎带写入原则
 
 events.jsonl 写入**绑定到已有动作**：handoff-packet → `skill_dispatched`；写 artifacts/ → `artifact_created`；写 issues/ → `issue_raised`；写 decisions/ → 对应决策事件。
@@ -497,4 +495,5 @@ ACCEPT 后如用户请求额外工作 → 铁律 #15 生效 → 执行 `./contra
 | `./protocols/write-through-actions.md` | Template A/B/C/D 执行时（含 user_feedback schema） |
 | `./protocols/pre-gate-self-check.md` | 每个 Gate 前（PG1-1~6 / PG2-1~8 / PG3-1~13 检查清单） |
 | `./protocols/state-conflict-resolution.md` | state_conflict_detected 时 |
+| `./protocols/spawn-via-handoff.md` | spawn sub-agent 前（Cowork Agent tool dispatch 约定） |
 | `./event-protocol.md` | Phase Exit 验证 + 写 events.jsonl 时（Canonical Event Type Enum） |

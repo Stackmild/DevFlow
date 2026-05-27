@@ -241,7 +241,7 @@ Active Task Resolution 使用 4 级优先级（path extract → project_path mat
 - **状态一致性检查**（SC-1~SC-4）：检测 task.yaml/events.jsonl 漂移、gate decision/event 不一致、Phase D 产出缺失
 - **change-package 提醒**：PreToolUse 拦截 `artifacts/change-package-*.yaml` 写入时，提示 D.2 审查流程
 
-**Cowork Agent tool dispatch 约定**：Cowork 的 Agent tool 中 `subagent_type` 字段是运行时 agent 类型（如 `"claude"`），不是 DevFlow skill 名称。dispatch 的正确写法是 `subagent_type: "claude"` + 在 prompt 正文中用 `@skill-name` 标明目标 skill（如 `@full-stack-developer`）。Enforcer 按以下优先级解析实际 skill：@mention > `skill_name:` > `subagent_type:` > tool 传入的 skill。只有解析出的 skill 在 canonical sub-skill 列表中才会触发 DevFlow dispatch 校验；通用 claude agent（无 @skill）不拦截。
+**Cowork Agent tool dispatch 约定**：Cowork 的 Agent tool 中 `subagent_type` 字段是运行时 agent 类型（如 `"claude"`），不是 DevFlow skill 名称。dispatch 的正确写法是 `subagent_type: "claude"` + 在 prompt 正文中用 `@skill-name` 标明目标 skill（如 `@full-stack-developer`）。Enforcer 按以下优先级解析实际 skill：@mention > `skill_name:` > `subagent_type:` > tool 传入的 skill。只有解析出的 skill 在 canonical sub-skill 列表中才会触发 DevFlow dispatch 校验；通用 claude agent（无 @skill）不拦截。详见 `skills-source/dev-orchestrator/protocols/spawn-via-handoff.md`。
 
 **Phase 1 已知边界**：检查 continuation *存在性*，不检查 continuation type 与写入路径的兼容性（NON-CODE/RECORD-STOP 类型不应允许源码写入）。此细粒度校验留 Phase 2。
 
