@@ -269,6 +269,67 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
         warnings.push('routing-decision-D.yaml could not be read for reviewer downgrade check');
       }
     }
+
+    // --- Check 5: Gate 3 rule_ui Playwright hardening ---
+    // When routing-decision-D matches rule_ui, both webapp-consistency-audit
+    // and playwright-e2e-testing must have dispatch permits AND e2e report
+    // must exist. reviewer-skip-playwright-e2e-testing.yaml allows bypass.
+    const rdPathUI = join(taskDir, 'decisions', 'routing-decision-D.yaml');
+    if (existsSync(rdPathUI)) {
+      try {
+        const rdContentUI = readFileSync(rdPathUI, 'utf8');
+        const ruleMatchUI = rdContentUI.match(/config_rule_matched:\s*["']?(\w+)/);
+        if (ruleMatchUI && ruleMatchUI[1] === 'rule_ui') {
+          const isNewTask = taskYaml.protocol_version && Number(taskYaml.protocol_version) >= 2;
+          const hasSkipPlaywright = decisionExists(taskDir, 'reviewer-skip-playwright-e2e-testing');
+
+          // webapp-consistency-audit permit
+          const hasWCA = permits.some(p => p.startsWith('dispatch_skill-webapp-consistency-audit-'));
+          if (!hasWCA) {
+            const detail = 'routing-decision-D matched rule_ui but no dispatch_skill permit for webapp-consistency-audit found in .permits/';
+            if (isNewTask) {
+              violations.push({ check: 'rule_ui_wca_permit', severity: 'BLOCK', detail });
+            } else {
+              warnings.push(detail);
+            }
+          } else {
+            checksPass.push('rule_ui_wca_permit');
+          }
+
+          // playwright-e2e-testing permit
+          const hasPlaywrightPermit = permits.some(p => p.startsWith('dispatch_skill-playwright-e2e-testing-'));
+          if (!hasPlaywrightPermit && !hasSkipPlaywright) {
+            const detail = 'routing-decision-D matched rule_ui but no dispatch_skill permit for playwright-e2e-testing found in .permits/';
+            if (isNewTask) {
+              violations.push({ check: 'rule_ui_playwright_permit', severity: 'BLOCK', detail });
+            } else {
+              warnings.push(detail);
+            }
+          } else if (hasPlaywrightPermit) {
+            checksPass.push('rule_ui_playwright_permit');
+          }
+
+          // e2e-visual-test-report.yaml artifact
+          const hasE2EReport = artifactsExist && existsSync(join(artifactsDir, 'e2e-visual-test-report.yaml'));
+          if (!hasE2EReport && !hasSkipPlaywright) {
+            const detail = 'routing-decision-D matched rule_ui but artifacts/e2e-visual-test-report.yaml not found';
+            if (isNewTask) {
+              violations.push({ check: 'rule_ui_e2e_report', severity: 'BLOCK', detail });
+            } else {
+              warnings.push(detail);
+            }
+          } else if (hasE2EReport) {
+            checksPass.push('rule_ui_e2e_report');
+          }
+
+          if (hasSkipPlaywright) {
+            checksPass.push('reviewer_skip_playwright_decision_exists');
+          }
+        }
+      } catch {
+        // Non-fatal
+      }
+    }
   }
 
   const allowed = violations.length === 0;

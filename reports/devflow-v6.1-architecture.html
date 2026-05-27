@@ -1,0 +1,1210 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DevFlow v6.1 系统结构总览</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --surface: #ffffff;
+      --ink: #1d2433;
+      --muted: #637083;
+      --line: #dce2ea;
+      --blue: #2357c6;
+      --blue-soft: #e8eefc;
+      --green: #157a55;
+      --green-soft: #e7f5ef;
+      --amber: #9a5c00;
+      --amber-soft: #fff3d8;
+      --red: #b42318;
+      --red-soft: #fde7e7;
+      --purple: #6847b7;
+      --purple-soft: #eee9fb;
+      --code: #0f172a;
+      --shadow: 0 12px 35px rgba(30, 41, 59, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.58;
+      letter-spacing: 0;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+    }
+
+    header.hero {
+      background: linear-gradient(135deg, #172033 0%, #253653 55%, #314464 100%);
+      color: #fff;
+      border-radius: 18px;
+      padding: 34px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+
+    header.hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -90px -120px auto;
+      width: 280px;
+      height: 280px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 52px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 860px;
+      margin: 18px 0 0;
+      color: rgba(255, 255, 255, 0.84);
+      font-size: 17px;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 650;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #fff;
+      white-space: nowrap;
+    }
+
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 22px 0;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      position: sticky;
+      top: 12px;
+      z-index: 10;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 6px 20px rgba(30, 41, 59, 0.06);
+    }
+
+    .nav a {
+      padding: 8px 10px;
+      border-radius: 10px;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .nav a:hover {
+      background: var(--blue-soft);
+      text-decoration: none;
+    }
+
+    section {
+      margin-top: 26px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .section-note {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 4px 16px rgba(30, 41, 59, 0.04);
+    }
+
+    .card.compact {
+      padding: 14px;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 108px;
+    }
+
+    .stat strong {
+      font-size: 30px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .badge.ok {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .badge.warn {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .badge.info {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .badge.purple {
+      background: var(--purple-soft);
+      color: var(--purple);
+    }
+
+    .arch {
+      display: grid;
+      grid-template-columns: 1fr 54px 1fr 54px 1.1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .arch-node {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 132px;
+      box-shadow: 0 4px 16px rgba(30, 41, 59, 0.04);
+    }
+
+    .arch-node ul,
+    .card ul {
+      margin: 10px 0 0;
+      padding-left: 18px;
+    }
+
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+    }
+
+    .phase {
+      display: grid;
+      grid-template-columns: 120px minmax(0, 1fr) 180px;
+      gap: 14px;
+      align-items: start;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .phase-label {
+      display: grid;
+      gap: 8px;
+    }
+
+    .phase-label code {
+      display: inline-block;
+      color: var(--blue);
+      background: var(--blue-soft);
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-weight: 700;
+    }
+
+    .phase-title {
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .phase-body p {
+      margin: 0 0 8px;
+    }
+
+    .phase-body ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .phase-gate {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(30, 41, 59, 0.04);
+    }
+
+    th,
+    td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--line);
+      padding: 12px 13px;
+      font-size: 14px;
+    }
+
+    th {
+      background: #eef2f7;
+      color: #334155;
+      font-weight: 750;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code,
+    pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    code {
+      color: #1f3f88;
+      background: #eef3ff;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      background: var(--code);
+      color: #e2e8f0;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      color: inherit;
+      background: transparent;
+      padding: 0;
+    }
+
+    details {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 13px 15px;
+      box-shadow: 0 4px 16px rgba(30, 41, 59, 0.04);
+    }
+
+    details + details {
+      margin-top: 10px;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 800;
+      color: #243044;
+    }
+
+    details p,
+    details ul {
+      color: var(--muted);
+    }
+
+    .callout {
+      padding: 15px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .callout.ok {
+      border-color: #b6dfce;
+      background: var(--green-soft);
+    }
+
+    .callout.warn {
+      border-color: #efd18b;
+      background: var(--amber-soft);
+    }
+
+    .callout.info {
+      border-color: #c3d3f6;
+      background: var(--blue-soft);
+    }
+
+    .footer {
+      margin-top: 36px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 940px) {
+      .grid.cols-2,
+      .grid.cols-3,
+      .grid.cols-4 {
+        grid-template-columns: 1fr;
+      }
+
+      .arch {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        transform: rotate(90deg);
+      }
+
+      .phase {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media print {
+      .nav {
+        position: static;
+        box-shadow: none;
+      }
+
+      header.hero,
+      .card,
+      table,
+      details {
+        box-shadow: none;
+      }
+
+      body {
+        background: #fff;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <p class="eyebrow">DevFlow v6.1 Freeze · 2026-05-28</p>
+      <h1>DevFlow 系统结构总览</h1>
+      <p>当前 DevFlow 已从“LLM 自觉执行流程”升级为“代码层门禁 + 状态机对账 + sub-agent handoff 证据链”的半自动开发工作流。核心目标：让定义、设计、实现、审查、收尾每一步都有可验证状态，而不是只靠对话声明。</p>
+      <div class="meta-row">
+        <span class="pill">状态：v6.1 freeze</span>
+        <span class="pill">Smoke：36/36 PASS</span>
+        <span class="pill">Skill 同步：14/14 PASS</span>
+        <span class="pill">普通 skill 瘦身：10 个完成</span>
+      </div>
+    </header>
+
+    <nav class="nav" aria-label="页面导航">
+      <a href="#status">当前程度</a>
+      <a href="#architecture">系统结构</a>
+      <a href="#flow">完整流程</a>
+      <a href="#gate">9 个 Gate Action</a>
+      <a href="#enforcer">Enforcer</a>
+      <a href="#state">State Store</a>
+      <a href="#skills">Skill 层</a>
+      <a href="#ops">运维检查</a>
+      <a href="#limits">剩余边界</a>
+    </nav>
+
+    <section id="status">
+      <div class="section-head">
+        <div>
+          <h2>现在做到什么程度</h2>
+          <p class="section-note">v6.1 不是“文档流程”，而是有 hook、gate、permit、events、auditor 的执行闭环。</p>
+        </div>
+      </div>
+
+      <div class="grid cols-4">
+        <div class="card stat">
+          <span class="badge ok">冻结</span>
+          <strong>9</strong>
+          <span>gate actions 已实现：初始化、dispatch、Gate、transition、对账、fallback、closeout。</span>
+        </div>
+        <div class="card stat">
+          <span class="badge ok">通过</span>
+          <strong>36/36</strong>
+          <span>smoke tests 覆盖 hardening、Task spawn、finalize、verify_state。</span>
+        </div>
+        <div class="card stat">
+          <span class="badge ok">完成</span>
+          <strong>10</strong>
+          <span>核心普通 skill 已瘦身，长 checklist/schema 外置到 reference/templates。</span>
+        </div>
+        <div class="card stat">
+          <span class="badge warn">保留</span>
+          <strong>3</strong>
+          <span>已知 non-blocker：reference 读取监控、frontend-design 显性引用、orchestrator 行数瘦身。</span>
+        </div>
+      </div>
+
+      <div class="grid cols-2" style="margin-top:14px">
+        <div class="callout ok">
+          <h3>可用结论</h3>
+          <p>DevFlow 已可用来跑真实小任务。micro-test-001 覆盖 bootstrap → PM → skip C → FSD → CR → Gate 3 → state-auditor → complete_task，`verify_state` D1-D7 全部通过。</p>
+        </div>
+        <div class="callout warn">
+          <h3>冻结策略</h3>
+          <p>当前不继续加协议功能。不再继续普通 skill 瘦身。后续 2-3 个真实任务只观察 anomalies，再决定是否排期 dev-orchestrator 瘦身。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="section-head">
+        <div>
+          <h2>系统结构</h2>
+          <p class="section-note">Cowork 负责宿主执行；DevFlow 负责协议、状态机、门禁、skill 调度。</p>
+        </div>
+      </div>
+
+      <div class="arch">
+        <div class="arch-node">
+          <h3>Cowork 宿主</h3>
+          <ul>
+            <li>用户输入 <code>@dev-orchestrator</code></li>
+            <li>Agent tool spawn</li>
+            <li>PreToolUse / PostToolUse / UserPromptSubmit hook</li>
+          </ul>
+        </div>
+        <div class="arrow">→</div>
+        <div class="arch-node">
+          <h3>DevFlow 控制层</h3>
+          <ul>
+            <li><code>devflow-enforcer.mjs</code> 拦截工具调用</li>
+            <li><code>devflow-gate.mjs</code> 执行 9 个 action</li>
+            <li><code>verify_state</code> 做 D1-D7 对账</li>
+          </ul>
+        </div>
+        <div class="arrow">→</div>
+        <div class="arch-node">
+          <h3>任务状态与项目产出</h3>
+          <ul>
+            <li><code>orchestrator-state/{task_id}/</code> 保存事实</li>
+            <li><code>project_path</code> 保存业务代码和 docs</li>
+            <li>sub-agent 通过 handoff packet 获取输入</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="grid cols-3" style="margin-top:14px">
+        <div class="card">
+          <h3>主控 Agent</h3>
+          <p>dev-orchestrator 负责 phase 编排、Gate 展示、sub-skill 调度、state store 更新。v6.1 已完成协议同步，但行数仍 499，暂不瘦身。</p>
+        </div>
+        <div class="card">
+          <h3>专业 Skill</h3>
+          <p>PM、architect、backend、frontend、FSD、reviewer、auditor 等专业 skill 执行具体判断和产出。10 个已完成瘦身和 pilot。</p>
+        </div>
+        <div class="card">
+          <h3>硬证据链</h3>
+          <p>每次关键行为都要留下 permit、event、artifact 或 decision。后续 Gate 和 auditor 反查证据，避免“流程嘴上跑完”。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow">
+      <div class="section-head">
+        <div>
+          <h2>完整工作流</h2>
+          <p class="section-note">canonical phase：<code>phase_a</code> / <code>phase_b</code> / <code>phase_c</code> / <code>phase_d_1</code> / <code>phase_d_2</code> / <code>phase_d_3</code> / <code>phase_f</code>。</p>
+        </div>
+      </div>
+
+      <div class="timeline">
+        <div class="phase">
+          <div class="phase-label">
+            <code>phase_a</code>
+            <span class="phase-title">定义与初始化</span>
+          </div>
+          <div class="phase-body">
+            <p>第一步必须由 <code>bootstrap</code> 创建任务状态层，写入 <code>protocol_version: 2</code>、<code>project_path</code>、<code>devflow_root</code>、<code>started_at</code>、<code>module_slug</code>。</p>
+            <ul>
+              <li>识别内部/外部 repo</li>
+              <li>创建 state store 子目录</li>
+              <li>写首条 <code>task_initialized</code> 事件和 bootstrap permit</li>
+            </ul>
+          </div>
+          <div class="phase-gate">
+            <span class="badge info">Action</span>
+            <span><code>bootstrap</code></span>
+            <span><code>transition phase_a → phase_b</code></span>
+          </div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-label">
+            <code>phase_b</code>
+            <span class="phase-title">产品分析</span>
+          </div>
+          <div class="phase-body">
+            <p>调度 <code>@product-manager</code>，输出 task brief、product spec、routing decision。Gate 1 确认方向。</p>
+            <ul>
+              <li>明确问题、目标、范围、非目标</li>
+              <li>判断是否需要设计、代码、handoff</li>
+              <li>Gate 1：GO / ADJUST / DEFER-TASK / PAUSE</li>
+            </ul>
+          </div>
+          <div class="phase-gate">
+            <span class="badge info">Gate 1</span>
+            <span><code>dispatch_skill product-manager</code></span>
+            <span><code>present_gate --gate 1</code></span>
+          </div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-label">
+            <code>phase_c</code>
+            <span class="phase-title">设计阶段</span>
+          </div>
+          <div class="phase-body">
+            <p>按需调度 architect、backend、interaction、frontend。bugfix/hotfix 可合法跳过，但必须写 skip 决策。Gate 2 确认 scope 与架构。</p>
+            <ul>
+              <li><code>@web-app-architect</code> 输出 architecture-spec</li>
+              <li><code>@backend-data-api</code> 输出 backend-contract</li>
+              <li><code>@webapp-interaction-designer</code> 输出 interaction-spec</li>
+              <li><code>@frontend-design</code> 输出 design-spec / package</li>
+            </ul>
+          </div>
+          <div class="phase-gate">
+            <span class="badge info">Gate 2</span>
+            <span><code>routing-decision-C.yaml</code></span>
+            <span>缺 design dispatch permit 会 BLOCK</span>
+          </div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-label">
+            <code>phase_d_1</code>
+            <span class="phase-title">执行实现</span>
+          </div>
+          <div class="phase-body">
+            <p>调度 <code>@full-stack-developer</code>，严格按 implementation-scope 和上游 contract 写代码，输出 change-package。</p>
+            <ul>
+              <li>FSD 不自改 scope</li>
+              <li>必须输出 <code>scope_flags</code>、<code>completion_status</code> 等契约字段</li>
+              <li>涉及宿主/云端边界时输出 <code>verification_boundary</code></li>
+            </ul>
+          </div>
+          <div class="phase-gate">
+            <span class="badge purple">D.1</span>
+            <span><code>dispatch_skill full-stack-developer</code></span>
+            <span><code>transition phase_d_1 → phase_d_2</code></span>
+          </div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-label">
+            <code>phase_d_2</code>
+            <span class="phase-title">独立审查</span>
+          </div>
+          <div class="phase-body">
+            <p>调度 <code>@code-reviewer</code>，按 scope_flags 条件追加一致性审计、Playwright E2E、发布前测试审查等。审查不能由 orchestrator 自审。</p>
+            <ul>
+              <li>review report 是 Gate 3 前置证据</li>
+              <li><code>scope_flags.ui=true</code> 或 <code>scope_flags.interaction=true</code> 时，D.2 reviewer set 包含 <code>code-reviewer</code>、<code>webapp-consistency-audit</code>、<code>playwright-e2e-testing</code></li>
+              <li><code>playwright-e2e-testing</code> 目标：交互路径、浏览器行为、关键 UI flow、视觉/交互回归证据</li>
+              <li>测试/发布风险可追加 <code>@pre-release-test-reviewer</code></li>
+            </ul>
+          </div>
+          <div class="phase-gate">
+            <span class="badge purple">D.2</span>
+            <span>reviewer dispatch permit 必须存在</span>
+            <span><code>transition phase_d_2 → phase_d_3</code></span>
+          </div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-label">
+            <code>phase_d_3</code>
+            <span class="phase-title">验收准备</span>
+          </div>
+          <div class="phase-body">
+            <p>汇总 change-package、review-report、风险、验证边界。必须先 transition 到 <code>phase_d_3</code>，再写 Gate 3 决策，避免时间戳倒置。</p>
+            <ul>
+              <li>Gate 3：ACCEPT / REVISE / PAUSE</li>
+              <li>ACCEPT 是唯一合法进入 Phase F 的路径</li>
+              <li>REVISE 走 continuation protocol</li>
+            </ul>
+          </div>
+          <div class="phase-gate">
+            <span class="badge info">Gate 3</span>
+            <span><code>present_gate --gate 3</code></span>
+            <span><code>transition phase_d_3 → phase_f</code></span>
+          </div>
+        </div>
+
+        <div class="phase">
+          <div class="phase-label">
+            <code>phase_f</code>
+            <span class="phase-title">收尾</span>
+          </div>
+          <div class="phase-body">
+            <p>可调度 <code>@state-auditor</code> 做完整审计，回填 known gaps、roadmap、deferred。最后由 <code>complete_task</code> 原子写回 <code>status: completed</code>。</p>
+            <ul>
+              <li>closeout 前必须通过 Gate 3、Phase D/F events、open blocker、permit/event 一致性检查</li>
+              <li>成功后写 <code>completed_at</code></li>
+            </ul>
+          </div>
+          <div class="phase-gate">
+            <span class="badge ok">Closeout</span>
+            <span><code>verify_state</code></span>
+            <span><code>complete_task</code></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gate">
+      <div class="section-head">
+        <div>
+          <h2>devflow-gate v6.1：9 个 Action</h2>
+          <p class="section-note">每个 action 都产出 ALLOW/BLOCK，并在允许时写 permit。新任务中 permit 是硬证据，不是可选日志。</p>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>触发点</th>
+            <th>防什么</th>
+            <th>关键输出</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>bootstrap</code></td>
+            <td>任务第一步</td>
+            <td>任务未初始化、缺 <code>project_path</code>、缺协议版本</td>
+            <td><code>task.yaml</code>、首条 event、bootstrap permit、目录结构</td>
+          </tr>
+          <tr>
+            <td><code>enter_phase</code></td>
+            <td>进入新 phase 前</td>
+            <td>跳 phase、缺前置 artifact</td>
+            <td>enter phase permit</td>
+          </tr>
+          <tr>
+            <td><code>dispatch_skill</code></td>
+            <td>构造 handoff 或 dispatch 前</td>
+            <td>无 scope、无 change-package、无上游输入就调 sub-agent</td>
+            <td>dispatch prerequisite 结果</td>
+          </tr>
+          <tr>
+            <td><code>present_gate</code></td>
+            <td>展示 Gate 1/2/3 前</td>
+            <td>跳过 pre-gate self-check、缺上游 dispatch permit</td>
+            <td>present gate permit、gate decision event</td>
+          </tr>
+          <tr>
+            <td><code>transition</code></td>
+            <td>phase 切换时</td>
+            <td>手写 phase events、events/task.yaml 漂移</td>
+            <td><code>phase_completed</code> + <code>phase_entered</code> + snapshot 更新</td>
+          </tr>
+          <tr>
+            <td><code>post_gate3_write</code></td>
+            <td>Gate 3 ACCEPT 后写文件前</td>
+            <td>Gate 3 后继续 ad-hoc 改代码</td>
+            <td>ALLOW/BLOCK</td>
+          </tr>
+          <tr>
+            <td><code>complete_task</code></td>
+            <td>closeout 最后一步</td>
+            <td>假完成、缺 Gate 3、缺 Phase F、open blocker 未关</td>
+            <td><code>status: completed</code>、<code>completed_at</code></td>
+          </tr>
+          <tr>
+            <td><code>verify_state</code></td>
+            <td>每个非 bootstrap action 前</td>
+            <td>D1-D7 状态机异常</td>
+            <td>critical issue BLOCK，warnings 记录</td>
+          </tr>
+          <tr>
+            <td><code>finalize_dispatches</code></td>
+            <td>gate action 前自动执行</td>
+            <td>Cowork 不触发 PostToolUse，dispatch 卡在 authorized</td>
+            <td><code>dispatch_skill-*</code> permit、<code>skill_dispatched</code> event</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="enforcer">
+      <div class="section-head">
+        <div>
+          <h2>Enforcer：Hook 自动执行层</h2>
+          <p class="section-note">enforcer 负责拦工具调用，把“应该调用 gate”变成“绕不过 gate”。</p>
+        </div>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>Hook 注册</h3>
+          <ul>
+            <li><code>PreToolUse</code> matcher：<code>Write|Edit|MultiEdit|Task</code></li>
+            <li><code>PostToolUse</code> matcher：<code>Task</code></li>
+            <li><code>UserPromptSubmit</code>：状态一致性和上下文提醒</li>
+            <li>重复 hook 通过 5 秒窗口去重，避免 user/project 双层重复警告</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>关键 DENY</h3>
+          <ul>
+            <li>新任务 Task spawn 缺 <code>task_id</code> 或 <code>handoff_id</code></li>
+            <li>handoff packet 不存在、skill 不匹配、input artifact hash/size 错</li>
+            <li>手写 <code>phase_completed</code> / <code>phase_entered</code></li>
+            <li>直接编辑 <code>task.yaml.current_phase</code></li>
+            <li>Gate 3 后无 continuation 写项目代码</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h3>Task Spawn Handoff 协议</h3>
+        <p>Cowork 的 Agent runtime type 与 DevFlow skill 名不是一回事。正确调用方式：</p>
+        <pre><code>Task tool:
+  subagenttype: "claude"
+  prompt:
+    @full-stack-developer
+    task_id: micro-test-001
+    handoff_id: handoff-D1-fsd-001</code></pre>
+        <table style="margin-top:14px">
+          <thead>
+            <tr>
+              <th>阶段</th>
+              <th>证据</th>
+              <th>语义</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>PreToolUse</td>
+              <td><code>dispatch_authorized-{skill}-{auth_id}.json</code> + <code>skill_dispatch_authorized</code></td>
+              <td>只代表“允许发起”，不代表 sub-agent 成功执行。</td>
+            </tr>
+            <tr>
+              <td>PostToolUse 或 fallback</td>
+              <td><code>dispatch_skill-{skill}-{handoff_id}-{sha}.json</code> + <code>skill_dispatched</code></td>
+              <td>代表 dispatch finalized，可被 Gate 和 verify_state 采信。</td>
+            </tr>
+            <tr>
+              <td>Input 校验</td>
+              <td><code>declared_size</code> / <code>declared_hash</code> / <code>large_file_reason</code></td>
+              <td>防止 sub-agent 收到不存在或错误输入后编结果。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="state">
+      <div class="section-head">
+        <div>
+          <h2>State Store：任务事实层</h2>
+          <p class="section-note">业务产出可在项目 repo；状态事实必须在 taskdir。v6.1 的核心修复就是把两者重新绑定。</p>
+        </div>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>目录结构</h3>
+          <pre><code>orchestrator-state/{task_id}/
+├── task.yaml
+├── events.jsonl
+├── artifacts/
+├── decisions/
+├── handoffs/
+│   └── {handoff_id}.yaml
+├── issues/
+├── monitor/
+│   └── audit-incremental-{phase}-{seq}.yaml
+├── .permits/
+└── .journal/</code></pre>
+        </div>
+        <div class="card">
+          <h3>写入规则</h3>
+          <ul>
+            <li>phase event 只能由 <code>transition</code> 写入。</li>
+            <li><code>transition</code> 在 lock 内追加 events，再原子更新 task snapshot。</li>
+            <li>普通 artifact/decision 先落事实，再更新 snapshot。</li>
+            <li>journal 残留可由 <code>verify_state --repairable</code> 判断 commit/rollback。</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">verify_state D1-D7</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>编号</th>
+            <th>检测项</th>
+            <th>拦截价值</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>D1</td>
+            <td><code>current_phase=phase_a</code> 但业务 specs 已大量存在</td>
+            <td>抓“业务推进、状态机停摆”。</td>
+          </tr>
+          <tr>
+            <td>D2</td>
+            <td>Gate decision 缺失但 handoff summary 存在</td>
+            <td>抓 Gate 决策未落盘。</td>
+          </tr>
+          <tr>
+            <td>D3</td>
+            <td>events 长时间无更新且任务未暂停</td>
+            <td>抓僵死任务或漏写 event。</td>
+          </tr>
+          <tr>
+            <td>D4</td>
+            <td><code>skill_dispatch_authorized</code> 长期未 finalized</td>
+            <td>抓 PostToolUse 缺口或 spawn 失败。</td>
+          </tr>
+          <tr>
+            <td>D5</td>
+            <td>自宣称合规但缺 handoff/permit 证据</td>
+            <td>抓“嘴上遵守，状态无证据”。</td>
+          </tr>
+          <tr>
+            <td>D6</td>
+            <td>dispatch permit 数与 <code>skill_dispatched</code> event 数不一致</td>
+            <td>抓内部证据链断裂。</td>
+          </tr>
+          <tr>
+            <td>D7</td>
+            <td><code>task.yaml.current_phase</code> 与最新 <code>phase_entered</code> 不一致</td>
+            <td>抓 snapshot drift 或手写篡改。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout info" style="margin-top:14px">
+        <h3>Incremental Auditor</h3>
+        <p><code>incremental-auditor.mjs</code> 在 <code>phase_completed</code> 后后台触发，跑 10 项轻量检查：events 可解析性、snapshot drift、dispatch residue、permit/event 一致性、Gate decision 一致性、handoff 数量、open blocker、必需 artifact、completed closeout、manual bypass。非阻塞，写入 <code>monitor/audit-incremental-*.yaml</code>。</p>
+      </div>
+    </section>
+
+    <section id="skills">
+      <div class="section-head">
+        <div>
+          <h2>Skill 层状态</h2>
+          <p class="section-note">10 个普通 skill 已瘦身；dev-orchestrator 保持 499 行，协议同步完成但不瘦身。</p>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Skill</th>
+            <th>当前行数</th>
+            <th>职责</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>dev-orchestrator</code></td>
+            <td>499</td>
+            <td>主控编排、Phase/Gate/State Store 协议入口。</td>
+            <td><span class="badge warn">协议已同步；瘦身单独排期</span></td>
+          </tr>
+          <tr>
+            <td><code>product-manager</code></td>
+            <td>126</td>
+            <td>Phase B 产品分析、routing、Gate 1 输入。</td>
+            <td><span class="badge ok">已瘦身 + pilot</span></td>
+          </tr>
+          <tr>
+            <td><code>web-app-architect</code></td>
+            <td>165</td>
+            <td>Phase C 架构设计、边界、状态归属、实现路线。</td>
+            <td><span class="badge ok">已瘦身 + pilot</span></td>
+          </tr>
+          <tr>
+            <td><code>backend-data-api</code></td>
+            <td>141</td>
+            <td>数据模型、API contract、错误模型、migration 风险。</td>
+            <td><span class="badge ok">已瘦身 + pilot</span></td>
+          </tr>
+          <tr>
+            <td><code>webapp-interaction-designer</code></td>
+            <td>180</td>
+            <td>交互路径、状态、AI 交互类型、页面行为。</td>
+            <td><span class="badge ok">已瘦身 + pilot</span></td>
+          </tr>
+          <tr>
+            <td><code>frontend-design</code></td>
+            <td>200</td>
+            <td>视觉层级、布局、组件、状态、a11y、design package。</td>
+            <td><span class="badge warn">已瘦身；显性引用证据较弱</span></td>
+          </tr>
+          <tr>
+            <td><code>full-stack-developer</code></td>
+            <td>317</td>
+            <td>D.1 执行代码、change-package、验证边界声明。</td>
+            <td><span class="badge ok">已瘦身 + independent pilot</span></td>
+          </tr>
+          <tr>
+            <td><code>code-reviewer</code></td>
+            <td>200</td>
+            <td>D.2 独立代码审查、verdict floor、review report。</td>
+            <td><span class="badge ok">已瘦身 + pilot</span></td>
+          </tr>
+          <tr>
+            <td><code>webapp-consistency-audit</code></td>
+            <td>173</td>
+            <td>UI 一致性、同级页面矩阵、persona 矩阵、修复优先级。</td>
+            <td><span class="badge ok">已瘦身 + pilot</span></td>
+          </tr>
+          <tr>
+            <td><code>playwright-e2e-testing</code></td>
+            <td>351</td>
+            <td>由 <code>routing-decision-D.yaml</code> 的 <code>rule_ui</code> 触发；D.2 产出 <code>e2e-visual-test-report.yaml</code>。Gate 3 硬化：rule_ui 命中时强制校验 playwright permit + e2e report。</td>
+            <td><span class="badge ok">已恢复为 source-managed 条件 reviewer</span></td>
+          </tr>
+          <tr>
+            <td><code>pre-release-test-reviewer</code></td>
+            <td>173</td>
+            <td>发布前风险、测试矩阵、verification boundary。</td>
+            <td><span class="badge ok">已瘦身 + pilot</span></td>
+          </tr>
+          <tr>
+            <td><code>state-auditor</code></td>
+            <td>196</td>
+            <td>Phase F 完整审计、CHECK-1 到 CHECK-20。</td>
+            <td><span class="badge ok">已瘦身 + pilot</span></td>
+          </tr>
+          <tr>
+            <td><code>release-and-change-manager</code></td>
+            <td>245</td>
+            <td>发布管理、change/release 记录。</td>
+            <td><span class="badge info">未瘦身；行数低</span></td>
+          </tr>
+          <tr>
+            <td><code>component-library-maintainer</code></td>
+            <td>201</td>
+            <td>组件清单、复用组件 API、组件库维护。</td>
+            <td><span class="badge info">未瘦身；行数低</span></td>
+          </tr>
+          <tr>
+            <td><code>devflow-self-improve</code></td>
+            <td>286</td>
+            <td>旁路自迭代复盘，不接主流程。</td>
+            <td><span class="badge info">未瘦身；行数可接受</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="ops">
+      <div class="section-head">
+        <div>
+          <h2>日常运行与验证</h2>
+          <p class="section-note">当前建议：v6.1 freeze 后只观察真实任务，不继续改协议。</p>
+        </div>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>启动任务时看什么</h3>
+          <ul>
+            <li>第一步是否写出 bootstrap permit</li>
+            <li><code>task.yaml.protocol_version</code> 是否为 <code>2</code></li>
+            <li><code>project_path</code> 是否指向真实项目 repo</li>
+            <li>sub-agent prompt 是否含 <code>task_id</code> + <code>handoff_id</code> + <code>@skill</code></li>
+            <li>Gate 前是否自动 finalize pending dispatch</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>真实任务观察文件</h3>
+          <ul>
+            <li><code>monitor/task-spawn-warnings.jsonl</code></li>
+            <li><code>monitor/task-spawn-samples.jsonl</code></li>
+            <li><code>monitor/audit-incremental-*.yaml</code></li>
+            <li><code>.permits/dispatch_authorized-*</code> 是否残留</li>
+            <li><code>events.jsonl</code> 是否出现 D1-D7 drift</li>
+            <li><code>artifacts/e2e-visual-test-report.yaml</code> 是否在 UI/interaction 任务中存在</li>
+            <li><code>.permits/dispatch_skill-playwright-e2e-testing-*</code> 是否在 <code>rule_ui</code> 命中时存在</li>
+            <li><code>decisions/routing-decision-D.yaml</code> 是否记录 <code>rule_ui</code></li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">常用命令</h3>
+      <pre><code># 同步全局 skills
+scripts/sync-skills.sh
+
+# 命名词表一致性
+node scripts/lint-naming.mjs
+
+# 状态机 hardening smoke test
+node scripts/smoke-devflow-hardening.mjs
+
+# 单任务状态对账
+node scripts/devflow-gate.mjs verify_state --task-dir orchestrator-state/{task_id}
+
+# 手动补齐 pending dispatch，通常 gate action 前会自动执行
+node scripts/devflow-gate.mjs finalize_dispatches --task-dir orchestrator-state/{task_id} --force</code></pre>
+    </section>
+
+    <section id="limits">
+      <div class="section-head">
+        <div>
+          <h2>剩余边界与建议</h2>
+          <p class="section-note">这些不是当前 blocker，但是真实任务观察期要盯。</p>
+        </div>
+      </div>
+
+      <div class="grid cols-3">
+        <div class="callout warn">
+          <h3>Reference 读取率未量化</h3>
+          <p>skill 瘦身后，LLM 是否每次真实读取 Required References 还没有运行时统计。建议未来把读取痕迹纳入 CHECK-20 或 pilot report。</p>
+        </div>
+        <div class="callout warn">
+          <h3>frontend-design 证据偏弱</h3>
+          <p>行为等价已过，但显性 grep 只命中 3/8 引用文件。不是 blocker；后续真实 UI 任务里继续观察。</p>
+        </div>
+        <div class="callout ok">
+          <h3>Playwright E2E 已恢复</h3>
+          <p><code>skills-source/playwright-e2e-testing/</code> 已从全局 skills 复制回 tracked repo；<code>sync-skills.sh</code> 覆盖 14/14 core skills；Gate 3 对 rule_ui 命中强制校验 playwright permit 与 <code>e2e-visual-test-report.yaml</code>。</p>
+        </div>
+        <div class="callout warn">
+          <h3>dev-orchestrator 不瘦身</h3>
+          <p>它是主协议核心，499 行仍在预算内。下一次要做时应单独开 protocol-level design review，不和普通 skill 瘦身混做。</p>
+        </div>
+      </div>
+
+      <details style="margin-top:14px">
+        <summary>建议的下一阶段</summary>
+        <ul>
+          <li>打 tag：<code>v6.1-freeze</code>。</li>
+          <li>跑 2-3 个真实 DevFlow 任务，只记录 anomalies，不主动改协议。</li>
+          <li>若 recurring anomalies 集中在 frontend/design reference 读取，再补 instrumentation。</li>
+          <li>若任务稳定，再单独评估 dev-orchestrator 瘦身。</li>
+        </ul>
+      </details>
+    </section>
+
+    <footer class="footer">
+      <p>来源：<code>RELEASE-NOTES-v6.1.md</code>、<code>README.md</code>、<code>CLAUDE.md</code>、<code>scripts/devflow-gate.mjs</code>、<code>scripts/devflow-enforcer.mjs</code>、<code>skills-source/dev-orchestrator/protocols/naming-canonical.md</code>。生成日期：2026-05-28。</p>
+    </footer>
+  </div>
+</body>
+</html>

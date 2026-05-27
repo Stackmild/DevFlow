@@ -62,6 +62,7 @@ DEVFLOW_SKILLS=(
   release-and-change-manager
   component-library-maintainer
   product-manager
+  playwright-e2e-testing
 )
 
 # ── DevFlow 实验性 skill 列表（存放于 skills-source/test/）────────────────────

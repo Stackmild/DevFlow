@@ -174,3 +174,17 @@ This release hardens DevFlow's state machine enforcement, closes bypass channels
 - `sync-skills.sh`: 13/13 PASS
 - `SKILL.md` line count: 499 (at budget)
 - E2E micro task: full DevFlow cycle (bootstrap → A→B→C→D1→D2→D3→F → complete) with `verify_state` PASS
+
+## Playwright E2E Source Restoration & Gate 3 Hardening (2026-05-28)
+
+- Restored `skills-source/playwright-e2e-testing/` from global skills (351 lines, within budget)
+- `scripts/sync-skills.sh` now covers 14/14 core skills including `playwright-e2e-testing`
+- Gate 3 (`present-gate.mjs`) hardened for `rule_ui` matches:
+  - Requires `dispatch_skill-webapp-consistency-audit-*` permit
+  - Requires `dispatch_skill-playwright-e2e-testing-*` permit
+  - Requires `artifacts/e2e-visual-test-report.yaml`
+  - `decisions/reviewer-skip-playwright-e2e-testing.yaml` allows bypass with WARN
+  - New tasks (`protocol_version >= 2`) missing permit/report → **BLOCK**
+  - Legacy tasks → **WARN**
+- Added 4 smoke tests (Test 37–40) covering rule_ui BLOCK/ALLOW/WARN paths
+- Smoke baseline updated: 40/40 PASS

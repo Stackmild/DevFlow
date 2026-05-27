@@ -1525,6 +1525,170 @@ input_artifacts:
   rmSync(tmpArtifact, { recursive: true, force: true });
 }
 
+// ── Test 37: Gate 3 rule_ui missing playwright permit BLOCKs ─────────────────
+{
+  console.log('\n━━ Test 37: Gate 3 rule_ui missing playwright permit BLOCKs ━━');
+  const tmp = tmpDir('t37');
+  const taskId = 'smoke-test-g3-ui-001';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-001' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-001' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-001' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  // Has FSD + CR + WCA permits, but NO playwright permit
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-001.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-001.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-001.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'rule_ui_playwright_permit');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when rule_ui matched but playwright permit missing');
+  else fail('Gate 3 rule_ui playwright BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 38: Gate 3 rule_ui missing e2e report BLOCKs ────────────────────────
+{
+  console.log('\n━━ Test 38: Gate 3 rule_ui missing e2e report BLOCKs ━━');
+  const tmp = tmpDir('t38');
+  const taskId = 'smoke-test-g3-ui-002';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-002' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-002' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-002' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-002' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  // Has FSD + CR + WCA + playwright permits, but NO e2e report
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-002.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-002.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-002.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-002.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'rule_ui_e2e_report');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when rule_ui matched but e2e report missing');
+  else fail('Gate 3 rule_ui e2e report BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 39: Gate 3 rule_ui with all permits and e2e report ALLOWs ───────────
+{
+  console.log('\n━━ Test 39: Gate 3 rule_ui with all permits and e2e report ALLOWs ━━');
+  const tmp = tmpDir('t39');
+  const taskId = 'smoke-test-g3-ui-003';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-003' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-003' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-003' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-003' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), '# E2E\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  // All required permits
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-003.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-003.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-003.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-003.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (r.ok && r.parsed?.allowed === true) pass('Gate 3 ALLOW when rule_ui matched with all permits and e2e report');
+  else fail('Gate 3 rule_ui ALLOW', `exit=${r.code} allowed=${r.parsed?.allowed} reason=${r.parsed?.reason}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 40: Gate 3 rule_ui with reviewer skip decision ALLOWs/WARNs ─────────
+{
+  console.log('\n━━ Test 40: Gate 3 rule_ui with reviewer skip decision ALLOWs/WARNs ━━');
+  const tmp = tmpDir('t40');
+  const taskId = 'smoke-test-g3-ui-004';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-004' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-004' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-004' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'reviewer-skip-playwright-e2e-testing.yaml'), 'rationale: No browser tests needed for this pure CSS change\n', 'utf8');
+
+  // Has FSD + CR + WCA, but NO playwright permit and NO e2e report (skipped)
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-004.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-004.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-004.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const allowed = r.ok && r.parsed?.allowed === true;
+  const hasSkipCheck = r.parsed?.checks_passed?.includes('reviewer_skip_playwright_decision_exists');
+  if (allowed && hasSkipCheck) pass('Gate 3 ALLOW with reviewer skip decision for playwright');
+  else fail('Gate 3 reviewer skip', `exit=${r.code} allowed=${r.parsed?.allowed} checks=${JSON.stringify(r.parsed?.checks_passed)}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

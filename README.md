@@ -46,7 +46,7 @@ Canonical phase 名称：
 | `phase_b` | 产品分析、Roadmap 绑定 | `product-manager` | Gate 1 |
 | `phase_c` | 设计阶段 | `web-app-architect`, `backend-data-api`, `webapp-interaction-designer`, `frontend-design` | Gate 2 |
 | `phase_d_1` | 执行 | `full-stack-developer` | - |
-| `phase_d_2` | 审查 | `code-reviewer` + 条件审查员 | - |
+| `phase_d_2` | 审查 | `code-reviewer` + 条件审查员（UI 改动时追加 `webapp-consistency-audit`、`playwright-e2e-testing`） | - |
 | `phase_d_3` | 收尾准备 | orchestrator | Gate 3 |
 | `phase_f` | 最终收尾、回填、审计 | `state-auditor` 可选 | - |
 
@@ -195,7 +195,7 @@ rg --files -g '*.mjs' scripts | xargs -n1 node --check
 node scripts/smoke-devflow-hardening.mjs
 ```
 
-当前基线：`smoke-devflow-hardening.mjs` 32/32 PASS。
+当前基线：`smoke-devflow-hardening.mjs` 40/40 PASS。
 
 ## 关键文件
 
