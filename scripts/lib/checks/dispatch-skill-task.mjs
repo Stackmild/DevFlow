@@ -17,16 +17,43 @@ export const SUB_SKILLS = new Set([
 
 const HANDOFF_ID_RE = /handoff_id:\s*([\w-]+)/;
 const TASK_ID_RE = /task_id:\s*([\w-]+)/;
+// Cowork Agent tool: subagent_type may be 'claude'; resolve actual skill from prompt.
+const SKILL_AT_RE = /@([\w-]+)/;                          // @full-stack-developer
+const SKILL_NAME_RE = /skill_name:\s*["']?([\w-]+)/;       // skill_name: full-stack-developer
 const SKILL_RE = /(?:subagent_type|skill|subagentType):\s*["']?([\w-]+)/;
+
+/**
+ * Resolve the DevFlow sub-skill name from prompt content.
+ * Priority (highest first):
+ *   1. @mention in prompt (e.g. "@full-stack-developer")
+ *   2. skill_name field in prompt
+ *   3. subagent_type field in prompt
+ *   4. toolSkill as fallback (only if it is a known sub-skill)
+ * Returns null if no known sub-skill is found.
+ */
+export function resolveSkillFromPrompt(prompt, toolSkill) {
+  const atMatch = prompt.match(SKILL_AT_RE);
+  if (atMatch && SUB_SKILLS.has(atMatch[1])) return atMatch[1];
+
+  const nameMatch = prompt.match(SKILL_NAME_RE);
+  if (nameMatch && SUB_SKILLS.has(nameMatch[1])) return nameMatch[1];
+
+  const typeMatch = prompt.match(SKILL_RE);
+  if (typeMatch && SUB_SKILLS.has(typeMatch[1])) return typeMatch[1];
+
+  if (toolSkill && SUB_SKILLS.has(toolSkill)) return toolSkill;
+
+  return null;
+}
 
 export function parseTaskSpawn(prompt, toolSkill) {
   const taskIdMatch = prompt.match(TASK_ID_RE);
   const handoffIdMatch = prompt.match(HANDOFF_ID_RE);
-  const skillMatch = prompt.match(SKILL_RE);
+  const skill = resolveSkillFromPrompt(prompt, toolSkill);
   return {
     taskId: taskIdMatch ? taskIdMatch[1] : null,
     handoffId: handoffIdMatch ? handoffIdMatch[1] : null,
-    skill: toolSkill || (skillMatch ? skillMatch[1] : null),
+    skill,
   };
 }
 

@@ -24,6 +24,7 @@ import {
 import { fingerprint, tryLock, cleanStaleLocks } from './lib/dedup.mjs';
 import {
   parseTaskSpawn,
+  resolveSkillFromPrompt,
   resolveTaskDir,
   resolveLegacyTaskDir,
   validateTaskSpawn,
@@ -551,12 +552,14 @@ function makeFingerprint(event, input) {
     const prompt = toolInput.prompt || toolInput.description || '';
     const taskIdMatch = prompt.match(/task_id:\s*([\w-]+)/);
     const handoffIdMatch = prompt.match(/handoff_id:\s*([\w-]+)/);
+    // Resolve skill from prompt (handles Cowork Agent tool where subagent_type is 'claude')
+    const resolvedSkill = resolveSkillFromPrompt(prompt, toolInput.subagent_type || toolInput.subagentType || '');
     return fingerprint({
       toolName: event === 'post-task' ? 'PostTask' : 'Task',
       toolUseId: toolInput.tool_use_id || toolInput.toolUseId || '',
       taskId: taskIdMatch ? taskIdMatch[1] : '',
       handoffId: handoffIdMatch ? handoffIdMatch[1] : '',
-      skillName: toolInput.subagent_type || toolInput.subagentType || '',
+      skillName: resolvedSkill || toolInput.subagent_type || toolInput.subagentType || '',
     });
   }
 

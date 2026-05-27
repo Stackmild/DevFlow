@@ -141,7 +141,7 @@ Cowork Agent tool 当前不触发 PostToolUse。DevFlow 因此在 gate action �
 - prompt 包含 `task_id`
 - prompt 包含 `handoff_id`
 - 文件存在：`handoffs/{handoff_id}.yaml`
-- packet 内 `skill_name` 匹配 Task tool 的 `subagent_type`
+- packet 内 `skill_name` 匹配 prompt 中解析出的 skill（优先级：@mention > `skill_name:` > `subagent_type:`）
 - `input_artifacts` 文件存在，size/hash 校验通过
 - 同一 `handoff_id` 已 finalized 后不能复用
 

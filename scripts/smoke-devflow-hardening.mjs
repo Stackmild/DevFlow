@@ -1364,6 +1364,167 @@ input_artifacts:
   }
 }
 
+// ── Test 33: Cowork Agent tool — @mention resolves skill (subagent_type=claude) ──
+{
+  console.log('\n━━ Test 33: Cowork Agent tool — @mention resolves skill (ALLOW) ━━');
+  const taskId = 'smoke-test-cowork-001';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  const handoffId = 'handoff-D1-fsd-cowork';
+  mkdirSync(join(taskDir, 'handoffs'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_a"\nstatus: "in_progress"\n`, 'utf8');
+
+  const tmpArtifact = tmpDir('t33-artifact');
+  writeFileSync(join(tmpArtifact, 'scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'handoffs', `${handoffId}.yaml`), `skill_name: full-stack-developer\nphase: phase_d_1\ninput_artifacts:\n  - path: ${join(tmpArtifact, 'scope.md')}\n    declared_size: 8\n    declared_hash: 0157f767d51c1f8c3f4b8fd03fd9f166e9abcaff3bd6ce8e5489cc0d2e252f14\n`, 'utf8');
+
+  const enforcerPath = join(REPO_ROOT, 'scripts', 'devflow-enforcer.mjs');
+  const preStdin = JSON.stringify({
+    tool_input: {
+      prompt: `task_id: ${taskId}\nhandoff_id: ${handoffId}\n@full-stack-developer\nRun implementation`,
+      subagent_type: 'claude',
+      tool_use_id: 'test-cowork-allow-001',
+    }
+  });
+  const rPre = runStdin('node', [enforcerPath, '--event', 'pre-write'], preStdin + '\n');
+  const preParsed = tryJson(rPre.stdout);
+  const denied = preParsed?.hookSpecificOutput?.permissionDecision === 'deny';
+
+  const permitsDir = join(taskDir, '.permits');
+  const permitFiles = existsSync(permitsDir) ? readdirSync(permitsDir) : [];
+  const hasAuthPermit = permitFiles.some(f => f.startsWith('dispatch' + '_authorized'));
+  const permitUsesResolvedSkill = permitFiles.some(f => f.includes('full-stack-developer'));
+  const permitUsesClaude = permitFiles.some(f => f.includes('dispatch_authorized-claude-'));
+
+  const eventsPath = join(taskDir, 'events.jsonl');
+  let hasAuthEvent = false;
+  if (existsSync(eventsPath)) {
+    const lines = readFileSync(eventsPath, 'utf8').split('\n').filter(l => l.trim());
+    hasAuthEvent = lines.some(l => l.includes('skill_dispatch_authorized'));
+  }
+
+  if (!denied && hasAuthPermit && hasAuthEvent && permitUsesResolvedSkill && !permitUsesClaude) {
+    pass('Cowork Agent @mention resolves skill, permit named with resolved skill');
+  } else {
+    fail('Cowork Agent @mention resolution', `denied=${denied} hasAuthPermit=${hasAuthPermit} hasAuthEvent=${hasAuthEvent} usesResolved=${permitUsesResolvedSkill} usesClaude=${permitUsesClaude} stdout=${rPre.stdout}`);
+  }
+
+  rmSync(taskDir, { recursive: true, force: true });
+  rmSync(tmpArtifact, { recursive: true, force: true });
+}
+
+// ── Test 34: Cowork Agent tool — @mention + missing handoff_id → DENY ───────────
+{
+  console.log('\n━━ Test 34: Cowork Agent tool — @mention + missing handoff_id (DENY) ━━');
+  const taskId = 'smoke-test-cowork-002';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_a"\nstatus: "in_progress"\n`, 'utf8');
+
+  const enforcerPath = join(REPO_ROOT, 'scripts', 'devflow-enforcer.mjs');
+  const preStdin = JSON.stringify({
+    tool_input: {
+      prompt: `task_id: ${taskId}\n@full-stack-developer\nRun implementation`,
+      subagent_type: 'claude',
+      tool_use_id: 'test-cowork-deny-002',
+    }
+  });
+  const rPre = runStdin('node', [enforcerPath, '--event', 'pre-write'], preStdin + '\n');
+  const preParsed = tryJson(rPre.stdout);
+  const denied = preParsed?.hookSpecificOutput?.permissionDecision === 'deny';
+
+  if (denied) {
+    pass('Cowork Agent @mention + missing handoff_id → DENY');
+  } else {
+    fail('Cowork Agent missing handoff_id', `expected DENY but got ALLOW stdout=${rPre.stdout}`);
+  }
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 35: Cowork Agent tool — no @professional-skill → ALLOW silently ─────────
+{
+  console.log('\n━━ Test 35: Cowork Agent tool — no @professional-skill → ALLOW silently ━━');
+  const enforcerPath = join(REPO_ROOT, 'scripts', 'devflow-enforcer.mjs');
+  const preStdin = JSON.stringify({
+    tool_input: {
+      prompt: 'Just a generic research task with no DevFlow skill mention',
+      subagent_type: 'claude',
+      tool_use_id: 'test-cowork-generic-003',
+    }
+  });
+  const rPre = runStdin('node', [enforcerPath, '--event', 'pre-write'], preStdin + '\n');
+  const preParsed = tryJson(rPre.stdout);
+  const denied = preParsed?.hookSpecificOutput?.permissionDecision === 'deny';
+
+  if (!denied) {
+    pass('Generic claude agent without @skill mention → ALLOW (not a DevFlow dispatch)');
+  } else {
+    fail('Generic claude agent blocked', `expected ALLOW but got DENY stdout=${rPre.stdout}`);
+  }
+}
+
+// ── Test 36: Cowork Agent tool — finalized permit uses resolved skill name ──────
+{
+  console.log('\n━━ Test 36: Cowork Agent tool — finalized permit uses resolved skill name ━━');
+  const taskId = 'smoke-test-cowork-003';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  const handoffId = 'handoff-D1-fsd-cowork-final';
+  mkdirSync(join(taskDir, 'handoffs'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_a"\nstatus: "in_progress"\n`, 'utf8');
+
+  const tmpArtifact = tmpDir('t36-artifact');
+  writeFileSync(join(tmpArtifact, 'scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'handoffs', `${handoffId}.yaml`), `skill_name: full-stack-developer\nphase: phase_d_1\ninput_artifacts:\n  - path: ${join(tmpArtifact, 'scope.md')}\n    declared_size: 8\n    declared_hash: 0157f767d51c1f8c3f4b8fd03fd9f166e9abcaff3bd6ce8e5489cc0d2e252f14\n`, 'utf8');
+
+  const enforcerPath = join(REPO_ROOT, 'scripts', 'devflow-enforcer.mjs');
+  const toolUseId = 'test-cowork-finalize-003';
+
+  // Pre: authorize
+  const preStdin = JSON.stringify({
+    tool_input: {
+      prompt: `task_id: ${taskId}\nhandoff_id: ${handoffId}\n@full-stack-developer\nRun implementation`,
+      subagent_type: 'claude',
+      tool_use_id: toolUseId,
+    }
+  });
+  runStdin('node', [enforcerPath, '--event', 'pre-write'], preStdin + '\n');
+
+  // Post: success
+  const postStdin = JSON.stringify({
+    tool_input: {
+      prompt: `task_id: ${taskId}\nhandoff_id: ${handoffId}\n@full-stack-developer\nRun implementation`,
+      subagent_type: 'claude',
+      tool_use_id: toolUseId,
+    }
+  });
+  runStdin('node', [enforcerPath, '--event', 'post-task'], postStdin + '\n');
+
+  // Check finalized permit uses full-stack-developer, not claude
+  const permitsDir = join(taskDir, '.permits');
+  const permitFiles = existsSync(permitsDir) ? readdirSync(permitsDir) : [];
+  const hasFinalPermit = permitFiles.some(f => f.startsWith('dispatch_skill-'));
+  const finalUsesResolvedSkill = permitFiles.some(f => f.startsWith('dispatch_skill-full-stack-developer-'));
+  const finalUsesClaude = permitFiles.some(f => f.startsWith('dispatch_skill-claude-'));
+
+  const eventsPath = join(taskDir, 'events.jsonl');
+  let hasDispatchedEvent = false;
+  if (existsSync(eventsPath)) {
+    const lines = readFileSync(eventsPath, 'utf8').split('\n').filter(l => l.trim());
+    hasDispatchedEvent = lines.some(l => l.includes('skill_dispatched'));
+  }
+
+  if (hasFinalPermit && finalUsesResolvedSkill && !finalUsesClaude && hasDispatchedEvent) {
+    pass('Finalized permit named with resolved skill (full-stack-developer), not claude');
+  } else {
+    fail('Finalized permit naming', `hasFinal=${hasFinalPermit} usesResolved=${finalUsesResolvedSkill} usesClaude=${finalUsesClaude} hasEvent=${hasDispatchedEvent}`);
+  }
+
+  rmSync(taskDir, { recursive: true, force: true });
+  rmSync(tmpArtifact, { recursive: true, force: true });
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 {
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
