@@ -70,55 +70,107 @@ This release hardens DevFlow's state machine enforcement, closes bypass channels
 - **Dispatch skill event**: `dispatch-skill.mjs` now writes `skill_dispatched` event on success
 - **Present gate event**: `present-gate.mjs` now writes `gate_decision` event on success
 
+## Skill Slimming
+
+10 个核心普通 skill 完成瘦身（第一轮）。策略：SKILL.md 保留触发入口 + 最小执行流 + 硬规则 + 必读清单；完整 schema / checklist / template / examples / 反模式外置到 `reference/` 或 `templates/`。
+
+| Skill | Before | After | Delta |
+|-------|--------|-------|-------|
+| backend-data-api | 797 | 141 | -82% |
+| pre-release-test-reviewer | 489 | 173 | -65% |
+| web-app-architect | 467 | 165 | -65% |
+| webapp-interaction-designer | 488 | 180 | -63% |
+| state-auditor | 422 | 196 | -54% |
+| webapp-consistency-audit | 378 | 173 | -54% |
+| code-reviewer | 403 | 200 | -50% |
+| frontend-design | 364 | 200 | -45% |
+| product-manager | 203 | 126 | -38% |
+| full-stack-developer | 491 | 317 | -35% |
+| **Total** | **4,502** | **1,871** | **-58%** |
+
+- 新建 18 个外置 reference / template 文件
+- 全部 13 个普通 skill ≤ 500 行（dev-orchestrator 单独排期）
+- 未瘦身：dev-orchestrator (499)、devflow-self-improve (286)、release-and-change-manager (245)、component-library-maintainer (201)
+
+## DevOrchestrator Protocol Sync
+
+第一轮 skill slimming 结束后发现 dev-orchestrator/SKILL.md 存在 6 项协议漂移。通过非破坏性编辑 + 等量删除修复，SKILL.md 维持 499 行 ≤500：
+
+1. **V6.0 → V6.1 9-action gate**：bootstrap / enter_phase / dispatch_skill / present_gate / transition / post_gate3_write / complete_task / verify_state / finalize_dispatches
+2. **Cowork Agent dispatch 约定**：`subagent_type=claude` + prompt 中 `@skill` + finalize_dispatches fallback
+3. **verify_state D1-D7**：状态机漂移检测简述写入 State Backbone Protocol
+4. **Canonical phase_d_1-3**：write-side 统一为 `phase_d_1` / `phase_d_2` / `phase_d_3`，transition 替代手写 phase_completed/entered
+5. **Phase A bootstrap 引用**：首次运行说明加入 bootstrap action 引用
+6. **外置协议参考表**：补全 `bootstrap-and-transition.md`
+
 ## Known Limitations
 
-- Cowork Agent tool does **not** trigger PostToolUse. Current system relies on `finalize_dispatches --force` fallback before every gate action. This works correctly in practice (verified by E2E), but is a platform-level limitation.
-- Real PreToolUse Task hook interception requires Cowork to actually fire the hook on Agent tool spawns. The logic is fully implemented and tested via synthetic smoke tests; production validation requires observing a real task.
+- Cowork Agent tool does **not** trigger PostToolUse. `finalize_dispatches --force` fallback 已覆盖全部 gate action 前调用，36/36 smoke tests 验证通过，生产环境运行稳定。
+- 外置 reference 文件后 LLM 运行时是否真按 Required References 读取，无持续量化监控数据。
+- dev-orchestrator 行数瘦身（499 行）仍待排期，需专门 design review + 回归验证。
+- Skill 瘦身 pilot 证据中，frontend-design 的引用显性 grep 验证仅命中 3/8 文件（行为等价但显性不足）。
 
 ## Files Changed
 
-### Modified (13 files)
+### Core State Machine (15 files)
 - `.gitignore`
 - `scripts/devflow-enforcer.mjs`
 - `scripts/devflow-gate.mjs`
 - `scripts/lib/canonical-state-reader.mjs`
+- `scripts/lib/checks/bootstrap.mjs`
 - `scripts/lib/checks/complete-task.mjs`
 - `scripts/lib/checks/dispatch-skill.mjs`
+- `scripts/lib/checks/dispatch-skill-task.mjs`
 - `scripts/lib/checks/enter-phase.mjs`
+- `scripts/lib/checks/finalize-dispatches.mjs`
 - `scripts/lib/checks/present-gate.mjs`
 - `scripts/lib/checks/transition.mjs`
+- `scripts/lib/checks/validate-inputs.mjs`
+- `scripts/lib/checks/verify-state.mjs`
 - `scripts/lib/state-reader.mjs`
-- `skills-source/dev-orchestrator/event-protocol.md`
-- `skills-source/dev-orchestrator/phases/phase-a-define.md`
-- `skills-source/state-auditor/SKILL.md`
 
-### New (15 files)
+### Auditing & Protocol (12 files)
 - `scripts/analyze-task-samples.mjs`
 - `scripts/incremental-auditor.mjs`
 - `scripts/lib/atomic.mjs`
-- `scripts/lib/checks/bootstrap.mjs`
-- `scripts/lib/checks/dispatch-skill-task.mjs`
-- `scripts/lib/checks/finalize-dispatches.mjs`
-- `scripts/lib/checks/validate-inputs.mjs`
-- `scripts/lib/checks/verify-state.mjs`
 - `scripts/lib/dedup.mjs`
 - `scripts/lib/journal.mjs`
 - `scripts/lib/phase-aliases.mjs`
 - `scripts/lint-naming.mjs`
 - `scripts/smoke-devflow-hardening.mjs`
+- `skills-source/dev-orchestrator/event-protocol.md`
+- `skills-source/dev-orchestrator/phases/phase-a-define.md`
 - `skills-source/dev-orchestrator/protocols/bootstrap-and-transition.md`
 - `skills-source/dev-orchestrator/protocols/naming-canonical.md`
 
-### Not Staged (excluded from commit)
-- `.claude/settings.json` — runtime environment configuration
-- `AGENTS.md` — pending user confirmation on origin/purpose
-- `.smoke-tmp/` — pure runtime temporary directory
-- `smoke-tests/` — smoke test target repo (runtime-created during E2E)
+### Skill Slimming Round 1 (30 files)
+- `skills-source/skill-slimming-guide.md`
+- `skills-source/state-auditor/SKILL.md` + `reference/audit-checks.md`
+- `skills-source/code-reviewer/SKILL.md` + `reference/review-checks.md`
+- `skills-source/pre-release-test-reviewer/SKILL.md` + `reference/test-checks.md`
+- `skills-source/product-manager/SKILL.md` + `reference/routing-guide.md` + `reference/checklists.md` + `reference/pitfalls-and-examples.md`
+- `skills-source/web-app-architect/SKILL.md` + `reference/workflow-steps.md` + `reference/decision-heuristics.md` + `reference/pitfalls-and-smells.md` + `reference/spec-template.md`
+- `skills-source/backend-data-api/SKILL.md` + `reference/data-api-checks.md` + `reference/contract-template.md` + `reference/pitfalls-and-examples.md`
+- `skills-source/frontend-design/SKILL.md`
+- `skills-source/webapp-interaction-designer/SKILL.md` + `reference/interaction-checks.md` + `reference/interaction-spec-template.md` + `reference/pitfalls-and-examples.md`
+- `skills-source/webapp-consistency-audit/SKILL.md` + `reference/consistency-checks.md` + `reference/report-template.md` + `reference/pitfalls-and-examples.md`
+- `skills-source/full-stack-developer/SKILL.md`
+- `reports/skill-slimming-closeout-report.md`
+
+### DevOrchestrator Protocol Sync (3 files)
+- `skills-source/dev-orchestrator/SKILL.md`
+- `skills-source/dev-orchestrator/protocols/spawn-via-handoff.md`
+- `AGENTS.md` (pointer conversion)
+
+### Reports
+- `reports/skill-slimming-closeout-report.md`
+- `RELEASE-NOTES-v6.1.md` (this file)
 
 ## Verification
 
 - `lint-naming.mjs`: PASS
 - `node --check` all 28 `.mjs` files: PASS
-- `smoke-devflow-hardening.mjs`: 32/32 PASS
-- `SKILL.md` line count: 500 (at budget)
+- `smoke-devflow-hardening.mjs`: 36/36 PASS
+- `sync-skills.sh`: 13/13 PASS
+- `SKILL.md` line count: 499 (at budget)
 - E2E micro task: full DevFlow cycle (bootstrap → A→B→C→D1→D2→D3→F → complete) with `verify_state` PASS
