@@ -145,7 +145,7 @@ frontend-design 的 reference 文件在 `templates/`, `checklists/`, `rubrics/` 
 | 1 | frontend-design 引用显性 | 部分不足 | Pilot 输出只 grep 到 3/8 文件的显性引用，但行为等价 |
 | 2 | state-auditor / code-reviewer / PRT / FSD / PM 的独立 pilot | 依赖历史任务 | 有真实任务产出佐证，但无当前会话独立 pilot 目录 |
 | 3 | dev-orchestrator SKILL.md 协议漂移 | 未修复 | 用户指示不动，单独排期 |
-| 4 | frontend-design 路径格式一致性 | 未修复 | `reference/` vs `./reference/`，功能不影响 |
+| 4 | frontend-design 路径格式一致性 | **已修复** | Required References 全部统一为 `skills-source/frontend-design/...` 格式 |
 | 5 | 长期 LLM 阅读行为量化验证 | 未做 | 外置后 LLM 是否真按 Required References 读取，无持续监控数据 |
 
 ---

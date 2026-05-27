@@ -190,11 +190,11 @@ Phase 1: Diagnosis & Routing → Phase 2: North-Star（硬 gate）→ Phase 3: S
 
 | 文件 | 使用时机 | 分级 |
 |------|----------|------|
-| `reference/design-route-library.md` | Phase 1 路线选择 | Always read |
-| `reference/route-anti-patterns.md` | Phase 1 退化预判 + Phase 4 复检 | Always read |
-| `checklists/frontend-design-hard-checks.md` | Phase 4 Hard Checks | Always read |
-| `rubrics/design-quality-rubric.md` | Phase 4 Rubric 自评 | Always read |
-| `templates/north-star-screen-template.md` | Phase 2 North-Star 填写 | Template-only |
-| `templates/design-spec.md` | 最终输出结构 | Template-only |
-| `templates/frontend-design-package.md` | Phase 4 Package 生成 | Template-only |
-| `examples/worked-example-ai-copilot-workspace.md` | 需要完整参考时 | Conditional read |
+| `skills-source/frontend-design/reference/design-route-library.md` | Phase 1 路线选择 | Always read |
+| `skills-source/frontend-design/reference/route-anti-patterns.md` | Phase 1 退化预判 + Phase 4 复检 | Always read |
+| `skills-source/frontend-design/checklists/frontend-design-hard-checks.md` | Phase 4 Hard Checks | Always read |
+| `skills-source/frontend-design/rubrics/design-quality-rubric.md` | Phase 4 Rubric 自评 | Always read |
+| `skills-source/frontend-design/templates/north-star-screen-template.md` | Phase 2 North-Star 填写 | Template-only |
+| `skills-source/frontend-design/templates/design-spec.md` | 最终输出结构 | Template-only |
+| `skills-source/frontend-design/templates/frontend-design-package.md` | Phase 4 Package 生成 | Template-only |
+| `skills-source/frontend-design/examples/worked-example-ai-copilot-workspace.md` | 需要完整参考时 | Conditional read |
