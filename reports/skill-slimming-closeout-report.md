@@ -112,19 +112,26 @@ frontend-design 的 reference 文件在 `templates/`, `checklists/`, `rubrics/` 
 
 | 检查项 | CLAUDE.md | README.md | AGENTS.md | dev-orchestrator/SKILL.md | 结论 |
 |--------|-----------|-----------|-----------|--------------------------|------|
-| devflow-gate 9 actions | 有 | 有 | N/A | 有 | 一致 |
-| Task spawn: subagent_type=claude + @skill | 有 | 有 | N/A | 未覆盖 | 漂移 |
+| devflow-gate 9 actions | 有 | 有 | N/A | **已修复** | 一致 |
+| Task spawn: subagent_type=claude + @skill | 有 | 有 | N/A | **已修复** | 一致 |
 | handoffs/{handoff_id}.yaml | 有 | 有 | N/A | 有 | 一致 |
-| finalize_dispatches fallback | 有 | 有 | N/A | 未覆盖 | 漂移 |
-| phase canonical (d1/d2/d3/f) | 有 | 有 | N/A | 有 | 一致 |
-| verify_state D1-D7 | 有 | 有 | N/A | 未覆盖 | 漂移 |
+| finalize_dispatches fallback | 有 | 有 | N/A | **已修复** | 一致 |
+| phase canonical (d1/d2/d3/f) | 有 | 有 | N/A | **已修复（写入侧统一为 phase_d_1/3）** | 一致 |
+| verify_state D1-D7 | 有 | 有 | N/A | **已修复** | 一致 |
 
-**漂移项：**
-- dev-orchestrator/SKILL.md 未覆盖 Cowork Agent tool spawn 协议（@mention / subagent_type=claude / skill 解析优先级）
-- dev-orchestrator/SKILL.md 未覆盖 finalize_dispatches fallback 机制
-- dev-orchestrator/SKILL.md 未覆盖 verify_state D1-D7 对账
+**漂移项（已通过 dev-orchestrator protocol sync 修复）**：
+- ✅ Universal Gate Rule 由 V6.0 5-action 升级为 V6.1 9-action（新增 bootstrap / transition / verify_state / finalize_dispatches）
+- ✅ Runtime-Aware Dispatch Protocol 加入 Cowork Agent dispatch 约定（subagent_type=claude + @skill + finalize fallback）
+- ✅ State Backbone Protocol 加入 verify_state D1-D7 简述
+- ✅ D.3 Gate 3 ACCEPT 后用 `transition --from phase_d_3 --to phase_f` 替代手写 phase_completed/entered（write-side canonical）
+- ✅ Phase D enter_phase 从 `phase_d` 改为 canonical `phase_d_1`
+- ✅ Phase A 首次运行说明加入 bootstrap action 引用
+- ✅ 外置协议参考表加入 bootstrap-and-transition.md 行
+- ✅ 描述从 Phase-Driven v4 更新为 v6.1（与 CLAUDE.md 对齐）
 
-> 注：用户明确指示不动 dev-orchestrator，单独排期。上述漂移记录在案，留待 dev-orchestrator 排期时一并处理。
+**保护约束**：本次 protocol sync 不改 scripts/、不改 enforcer、不改 gate、不改其他 skill、不重写 dev-orchestrator/SKILL.md；新增行通过等量删除（压缩 Sub-agent Return Continuity 表 + D.2→D.3 过渡 checkbox）平衡，最终 SKILL.md 行数 499，仍 ≤500。
+
+**验证**：sync-skills.sh ✅(13/13) · lint-naming ✅ · smoke-devflow-hardening ✅(36/36)。
 
 ---
 
@@ -144,7 +151,7 @@ frontend-design 的 reference 文件在 `templates/`, `checklists/`, `rubrics/` 
 |---|------|------|------|
 | 1 | frontend-design 引用显性 | 部分不足 | Pilot 输出只 grep 到 3/8 文件的显性引用，但行为等价 |
 | 2 | state-auditor / code-reviewer / PRT / FSD / PM 的独立 pilot | 依赖历史任务 | 有真实任务产出佐证，但无当前会话独立 pilot 目录 |
-| 3 | dev-orchestrator SKILL.md 协议漂移 | 未修复 | 用户指示不动，单独排期 |
+| 3 | dev-orchestrator SKILL.md 协议漂移 | **已修复** | 通过 protocol sync 修复 6 项漂移；行数 499 ≤500；不改 gate/enforcer 行为 |
 | 4 | frontend-design 路径格式一致性 | **已修复** | Required References 全部统一为 `skills-source/frontend-design/...` 格式 |
 | 5 | 长期 LLM 阅读行为量化验证 | 未做 | 外置后 LLM 是否真按 Required References 读取，无持续监控数据 |
 
@@ -152,22 +159,23 @@ frontend-design 的 reference 文件在 `templates/`, `checklists/`, `rubrics/` 
 
 ## 8. 建议
 
-### 8.1 是否进入 dev-orchestrator 单独排期
+### 8.1 dev-orchestrator 排期现状
 
-**建议：是，但优先级中等。**
+**协议漂移修复**：✅ 已完成（本次 protocol sync）
+- 通过非破坏性加法 + 等量删除完成 6 项漂移修复
+- 行数维持在 499 行（≤500）
+- 不改 gate / enforcer / scripts / 其他 skill 行为
 
-理由：
-- dev-orchestrator (499 行) 是最后一个 >250 行的核心 skill
-- 存在 3 项协议漂移（spawn 协议、finalize fallback、verify_state）
-- 但 orchestrator 是 DevFlow 的核心控制层，改动风险高，需要专门的 design review
-- 建议在至少 2-3 个完整 DevFlow 任务稳定运行后再启动
+**行数瘦身**：⏸ 仍单独排期，建议优先级中等
+- dev-orchestrator (499 行) 仍是最大的核心 skill
+- orchestrator 是 DevFlow 的核心控制层，瘦身改动风险高，需要专门的 design review + pilot
+- 建议在至少 2-3 个完整 DevFlow 任务稳定运行后再启动 slimming 排期
 
 ### 8.2 后续跟进项
 
-1. **frontend-design 路径格式统一**：将 `reference/xxx.md` 改为 `./reference/xxx.md`（低风险，1 行修改）
-2. **建立 pilot 回归机制**：每次修改 skill 后，用标准化 prompt 快速跑 pilot，确保行为等价
-3. **dev-orchestrator 排期**：收集 3 项协议漂移 + 行数瘦身需求，准备 design doc
-4. **长期 LLM 行为监控**：在 state-auditor 的 CHECK-20 中增加"reference 读取率"指标
+1. **建立 pilot 回归机制**：每次修改 skill 后，用标准化 prompt 快速跑 pilot，确保行为等价
+2. **dev-orchestrator slimming 排期**：协议漂移已修，剩余仅行数瘦身需求；准备 design doc
+3. **长期 LLM 行为监控**：在 state-auditor 的 CHECK-20 中增加"reference 读取率"指标
 
 ---
 

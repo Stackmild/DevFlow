@@ -1,7 +1,7 @@
 ---
 name: dev-orchestrator
 description: |
-  DevFlow 开发工作流编排器（Phase-Driven v4）。
+  DevFlow 开发工作流编排器（Phase-Driven v6.1）。
   外层骨架：A-Define → B-Roadmap → C-Plan → D-Execute+Verify+Gate → F-Closeout。
   阶段是骨架，专业 skills 是阶段内部的能力模块。
   orchestrator 是路由者和 state 管理者，不是执行者——专业产出必须 spawn sub-agent。
@@ -66,6 +66,8 @@ triggers:
 
 铁律 #13 的运行时展开。每次 spawn sub-agent 后，基于 **artifact 存在性**判定分支（不依赖 sub-agent 自报）：
 
+> **Cowork Agent dispatch 约定**：`subagent_type` 必须为 `"claude"`（运行时类型）；DevFlow skill 名通过 prompt 中 `@skill-name` 显式声明；prompt 须含 `task_id` + `handoff_id`。Cowork 不触发 PostToolUse → 由 `finalize_dispatches --force` 在下一 gate action 前自动补齐 `dispatch_skill` permit + `skill_dispatched` event。完整规则见 `./protocols/spawn-via-handoff.md`。
+
 ### Branch 1: NORMAL
 
 判定：目标 artifact 文件存在 + 必填字段完整。
@@ -103,31 +105,28 @@ Sub-agent 返回后必须不间断完成从"收集产出"到"下一个合法暂�
 1. Gate 展示完成，等待用户选择（GO / PROCEED / ACCEPT / REVISE / PAUSE）
 2. 明确需要用户补充信息（环境变量值、部署凭证等）
 
-| 链路 | 起点 | 终点（合法暂停点） |
-|------|------|-------------------|
-| Phase B | PM sub-agent 返回 | Gate 1 展示 |
-| Phase C | 最后一个 design skill 返回 | Gate 2 展示 |
-| Phase D.1→D.2 | FSD 返回 | D.2 reviewer dispatch 完成 |
-| Phase D.2→D.3 | reviewer 返回 | Gate 3 展示 |
-| Phase D.3→F | Gate 3 ACCEPT | Phase F 完成（task_completed 写入） |
+各 Phase 链路终点详见 `./protocols/write-through-actions.md §Sub-agent Return Continuity Protocol`。
 
-`task_completed` 后进入 **IDLE**，必须走续行协议或新 task，不得 ad-hoc 执行。
-详见 `./protocols/write-through-actions.md §Post-Closeout Idle State`。
+`task_completed` 后进入 **IDLE**，必须走续行协议或新 task，不得 ad-hoc 执行（详见同文件 §Post-Closeout Idle State）。
 
 ---
 
-## Universal Gate Rule（V6.0 — 薄控制层）
+## Universal Gate Rule（V6.1 — 9 actions 薄控制层）
 
-执行以下 5 个动作前，运行 `node scripts/devflow-gate.mjs {action} --task-dir {state_dir} ...`。
+执行以下 gate actions 时，运行 `node scripts/devflow-gate.mjs {action} ...`。
 `allowed: false` 时停止并展示 violations，**按协议不得继续**。
 
 | 动作 | 何时调用 |
 |------|---------|
+| `bootstrap` | 任务首次初始化（Phase A，详见 `./protocols/bootstrap-and-transition.md`） |
 | `enter_phase --phase {P}` | 写 `phase_entered` 事件之前 |
-| `post_gate3_write --target-path {path}` | Gate 3 ACCEPT 后写任何非 Phase F 允许文件之前 |
-| `complete_task` | 写 `task.yaml status=completed` 之前 |
 | `dispatch_skill --skill {skill} --phase {phase}` | 构造 handoff-packet 之前（Template A/B Step 0） |
 | `present_gate --gate {N}` | 向用户展示 Gate N 之前（Template C Step 0） |
+| `transition --from {P1} --to {P2}` | Phase 切换原子写（Template C Step 4a） |
+| `post_gate3_write --target-path {path}` | Gate 3 ACCEPT 后写任何非 Phase F 允许文件之前 |
+| `complete_task` | 写 `task.yaml status=completed` 之前 |
+| `verify_state --task-dir {path}` | 每个非 bootstrap gate action 前自动执行（D1-D7 状态机对账） |
+| `finalize_dispatches --task-dir {path} [--force]` | gate action 前自动 finalize 未 PostToolUse 触发的 dispatch（Cowork Agent fallback） |
 
 **返回值处理**：
 
@@ -165,6 +164,10 @@ Sub-agent 返回后必须不间断完成从"收集产出"到"下一个合法暂�
 
 events.jsonl 写入**绑定到已有动作**：handoff-packet → `skill_dispatched`；写 artifacts/ → `artifact_created`；写 issues/ → `issue_raised`；写 decisions/ → 对应决策事件。
 
+### State Drift Verification（verify_state D1-D7）
+
+每个非 bootstrap gate action 前自动执行 `verify_state` 对账：D1 spec/phase 漂移 · D2 gate decision/event 不一致 · D3 stale events · D4 dispatch authorized 长期未 finalized · D5 自宣称与证据矛盾 · D6 permit 数与 `skill_dispatched` event 不匹配 · D7 task.yaml 与最新 phase_entered 不一致。Critical issue 触发 BLOCK，禁止继续 gate action。
+
 ---
 
 ## D Phase Exit Bookkeeping Checklist
@@ -187,16 +190,12 @@ Phase D 是 state 写入最密集的阶段。以下为 D.1→D.2→D.3 完整闭
 - [ ] P0/P1 findings → issues/{id}.yaml + events: issue_raised
 - [ ] task.yaml: open_issues_count 更新
 
-**D.2→D.3 过渡**：
-- [ ] artifacts/review-completeness-summary.yaml 写入
-- [ ] decisions/pre-gate-check-3.yaml 写入
+**D.2→D.3 过渡**：artifacts/review-completeness-summary.yaml + decisions/pre-gate-check-3.yaml 写入
 
 **D.3 Gate 3 ACCEPT 后**：
 - [ ] decisions/gate-3.yaml 写入
 - [ ] events: gate_requested(final) + gate_decision(final)
-- [ ] events: phase_completed(phase_d)（铁律 #8，与下一条同步）
-- [ ] task.yaml: completed_phases += phase_d
-- [ ] events: phase_entered(phase_f)
+- [ ] `transition --from phase_d_3 --to phase_f`（原子写 phase_completed(phase_d_3) + phase_entered(phase_f) + 更新 task.yaml.completed_phases；不再手写 phase_d）
 - [ ] Phase F 立即执行（不停顿）
 
 **各 Gate 前**：pre-gate-check-1.yaml（Gate 1 前）+ pre-gate-check-2.yaml（Gate 2 前）
@@ -357,7 +356,7 @@ ANY item = NO → 立即补写，不继续到下一阶段。Phase Exit Gate 是�
 
 > 目标：intake + capability scan + task typing. **进入 Phase A 时必须 Read `./phases/phase-a-define.md`**（详细步骤在外置文件）
 
-**⚠️ 首次运行**：Phase A 不需要 `enter_phase` gate（state store 尚未初始化）。
+**⚠️ 首次运行**：Phase A 不需要 `enter_phase` gate（state store 尚未初始化）；任务初始化通过 `bootstrap` action 完成（详见 `./protocols/bootstrap-and-transition.md`）。
 
 **MUST_PRODUCE**：`artifacts/task-brief.md` · `task.yaml`（initialized）· `events.jsonl`（task_initialized + phase_completed）
 
@@ -406,7 +405,7 @@ ANY item = NO → 立即补写，不继续到下一阶段。Phase Exit Gate 是�
 
 > D 是不可拆分的执行闭环。进入 D = 必须完成 D.1→D.2→D.3。**必须 Read `./phases/phase-d-execute.md`**
 
-**⚠️ GATE**：`node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_d`
+**⚠️ GATE**：`node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_d_1`
 
 ### D.1 — Execute
 
@@ -448,7 +447,7 @@ D.2 全部 reviewer 完成后，生成 `artifacts/review-completeness-summary.ya
 
 ACCEPT 后如用户请求额外工作 → 铁律 #15 生效 → 执行 `./contracts/continuation-protocol.md §Pre-Action Check`。
 
-**Phase D Exit Sequence（硬规则）**：gate_decision(final) → phase_completed(phase_d) → task.yaml.completed_phases += phase_d（铁律 #8）→ phase_entered(phase_f)
+**Phase D.3 → F 转换（硬规则）**：gate_decision(final) → 执行 `transition --from phase_d_3 --to phase_f`（原子写 phase_completed(phase_d_3) + phase_entered(phase_f) + 更新 task.yaml.completed_phases；铁律 #8 通过 transition 命令保证） → Phase F 立即执行
 
 ---
 
@@ -495,5 +494,6 @@ ACCEPT 后如用户请求额外工作 → 铁律 #15 生效 → 执行 `./contra
 | `./protocols/write-through-actions.md` | Template A/B/C/D 执行时（含 user_feedback schema） |
 | `./protocols/pre-gate-self-check.md` | 每个 Gate 前（PG1-1~6 / PG2-1~8 / PG3-1~13 检查清单） |
 | `./protocols/state-conflict-resolution.md` | state_conflict_detected 时 |
-| `./protocols/spawn-via-handoff.md` | spawn sub-agent 前（Cowork Agent tool dispatch 约定） |
+| `./protocols/spawn-via-handoff.md` | spawn sub-agent 前（Cowork Agent tool dispatch 约定 + finalize fallback） |
+| `./protocols/bootstrap-and-transition.md` | bootstrap / transition 命令使用时（含 phase alias 规则与 enforcer 硬化） |
 | `./event-protocol.md` | Phase Exit 验证 + 写 events.jsonl 时（Canonical Event Type Enum） |
