@@ -1,0 +1,45 @@
+# Visual Test Scope Schema v1.0
+#
+# Input artifact declaring changed UI surfaces and visual testing requirements.
+# Written by FSD (or orchestrator) before Playwright E2E skill dispatch.
+# Consumed by: playwright-e2e-testing skill, Gate 3 coverage check.
+# Output path: artifacts/visual-test-scope.yaml
+
+schema_version: "1.0"
+
+# changed_surfaces: non-empty when rule_ui matched in routing-decision-D
+changed_surfaces:
+  - surface_id: "login-form"           # kebab-case, unique within file
+    description: "登录表单 UI"
+    type: "page"                       # page | component | modal | toast | layout
+    file_paths:                        # ≥1 file path(s) touched for this surface
+      - "src/pages/Login.tsx"
+      - "src/components/LoginForm.tsx"
+    required_viewports:                # optional override; defaults to root required_viewports
+      - "desktop"
+      - "mobile"
+    required_states:                   # optional override; defaults to root required_states
+      - "default"
+      - "error"
+      - "loading"
+    interactions_to_test:              # optional; happy-path / error-path interactions
+      - "submit-success"
+      - "submit-error"
+    is_new: false                      # true = stricter coverage (all required states + viewports mandatory)
+
+# Project-wide baseline viewports (used when per-surface required_viewports omitted)
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+  - name: "mobile"
+    width: 390
+    height: 844
+
+# Project-wide baseline states (used when per-surface required_states omitted)
+required_states:
+  - "default"
+  - "error"
+  - "loading"
+  - "empty"
+  - "overflow"

@@ -166,11 +166,18 @@ This release hardens DevFlow's state machine enforcement, closes bypass channels
 - `reports/skill-slimming-closeout-report.md`
 - `RELEASE-NOTES-v6.1.md` (this file)
 
+### Playwright Coverage Gate (6 files)
+- `skills-source/playwright-e2e-testing/references/visual-test-scope.yaml` (NEW)
+- `skills-source/playwright-e2e-testing/references/yaml-schema.md` (EXTENDED)
+- `skills-source/playwright-e2e-testing/references/dod-validator.ts` (HARDENED)
+- `scripts/lib/checks/present-gate.mjs` (EXTENDED: Check 6 + Check 7)
+- `scripts/smoke-devflow-hardening.mjs` (Tests 41–46)
+
 ## Verification
 
 - `lint-naming.mjs`: PASS
 - `node --check` all 28 `.mjs` files: PASS
-- `smoke-devflow-hardening.mjs`: 36/36 PASS
+- `smoke-devflow-hardening.mjs`: 46/46 PASS
 - `sync-skills.sh`: 13/13 PASS
 - `SKILL.md` line count: 499 (at budget)
 - E2E micro task: full DevFlow cycle (bootstrap → A→B→C→D1→D2→D3→F → complete) with `verify_state` PASS
@@ -188,3 +195,103 @@ This release hardens DevFlow's state machine enforcement, closes bypass channels
   - Legacy tasks → **WARN**
 - Added 4 smoke tests (Test 37–40) covering rule_ui BLOCK/ALLOW/WARN paths
 - Smoke baseline updated: 40/40 PASS
+
+## Playwright Coverage Gate Upgrade (v6.1.x)
+
+将 Gate 3 的 `rule_ui` 检查从"permit + report 存在性"升级为"E2E 报告内容验证 + UI 变更覆盖完整性 + scope flag 防漏"。
+
+### 新增输入契约
+
+- `artifacts/visual-test-scope.yaml` — 声明本次变更涉及哪些 UI surface、需要测哪些 viewport/state/interaction
+- Schema: `changed_surfaces[].{surface_id, type, file_paths, required_viewports, required_states, interactions_to_test, is_new}`
+
+### E2E 报告 Schema 扩展
+
+`artifacts/e2e-visual-test-report.yaml` 新增 Coverage Gate v1.0 字段：
+- `expected_visual_targets` — 应测目标清单
+- `coverage_trace` — 每个目标的实际测试覆盖路径 + `result: PASS|FAIL|NOT_COVERED`
+- `untested_targets` — 未覆盖目标（空 = 合规）
+- `coverage_summary` — `expected_count / covered_count / missing_count / coverage_percent`
+- `definition_of_done` 新增 Q13–Q16（coverage trace / untested targets / missing count / expected targets）
+
+### Gate 3 新增检查项
+
+**Check 6 — E2E Report Content Validation**（`rule_ui` 且存在 e2e report 时触发）：
+- 报告可读（YAML parseable）
+- `reporter: "playwright-e2e-testing"`
+- `completion_status: "COMPLETE"`
+- `merge_recommendation: "ALLOW"`
+- DoD Q* 全部为 `PASS` 或 `N/A`
+- `expected_visual_targets` 非空
+- `untested_targets` 为空
+- `coverage_summary.missing_count === 0`
+- 每个 expected target 都有 coverage trace 且 `result !== "NOT_COVERED"`
+- `reviewer-skip-playwright-e2e-testing.yaml` 可跳过 Check 6
+
+**Check 7 — Scope Flag Leak Prevention**：
+- 读取最新 `change-package-*.yaml` 的 `files_touched` 和 `scope_flags`
+- 若 `files_touched` 命中 UI 路径模式（`.tsx?` 组件页、`css/scss`、`.vue`、tailwind、public/assets 图片等）且 `scope_flags.ui === false && interaction === false`：
+  - 新任务 → **BLOCK**（`scope_flag_leak`）
+  - 遗留任务 → WARN
+
+### DoD Validator 硬化
+
+`skills-source/playwright-e2e-testing/references/dod-validator.ts` 新增 Q13–Q16：
+- Q13: `coverage_trace` 无 `NOT_COVERED`
+- Q14: `untested_targets` 为空
+- Q15: `missing_count === 0`
+- Q16: `expected_visual_targets` 非空
+
+### Smoke Tests 扩展
+
+新增 6 个测试（Test 41–46）：
+- Test 41: 畸形 YAML report → BLOCK
+- Test 42: `completion_status: INCOMPLETE` → BLOCK
+- Test 43: `coverage_trace` 含 `NOT_COVERED` → BLOCK
+- Test 44: `untested_targets` 非空 → BLOCK
+- Test 45: 完整合规报告 → ALLOW
+- Test 46: UI 文件但 `scope_flags.ui=false` + `interaction=false` → BLOCK
+
+Smoke baseline: **46/46 PASS**
+
+## Scope Reconciliation (v6.1.x patch)
+
+将 Gate 3 的 `rule_ui` 检查从"E2E 报告自证"升级为"scope ↔ report 交叉验证"。新增 `artifacts/visual-test-scope.yaml` 输入契约，要求 scope 中声明的每个 changed surface 必须在 E2E 报告中有对应覆盖。
+
+### 新增输入契约
+
+- `artifacts/visual-test-scope.yaml` — 声明本次变更涉及哪些 UI surface、需要测哪些 viewport/state/interaction
+- Schema: `changed_surfaces[].{surface_id, type, file_paths, required_viewports, required_states, interactions_to_test, is_new}`
+
+### Gate 3 新增检查项（Check 8）
+
+| Step | Check | 失败行为 |
+|---|---|---|
+| 8a | `visual-test-scope.yaml` 存在性 | BLOCK `rule_ui_visual_scope_missing` |
+| 8b | scope YAML 可解析 + `changed_surfaces` 非空 | BLOCK `scope_parseable` / `scope_surfaces_empty` |
+| 8c | DoD Q1–Q16 全存在 + 值在 schema 允许集合中 | BLOCK `e2e_dod_incomplete` / `e2e_dod_value_invalid` |
+| 8d | scope ↔ report reconciliation (R2/R3/R4) | BLOCK `scope_surface_uncovered` / `scope_target_not_covered` / `scope_is_new_viewport_missing` / `scope_is_new_state_missing` |
+
+**DoD 值约束（schema-allowed）:**
+- 必须为 `PASS`: Q1, Q2, Q3, Q5, Q6, Q7, Q8, Q14, Q15, Q16
+- 可为 `PASS` 或 `N/A`: Q4, Q9, Q10, Q11, Q12, Q13
+- 任何 `FAIL` → BLOCK（已有 FAIL scanner 覆盖）
+- 任何缺失或值越界 → BLOCK
+
+**Reconciliation 规则:**
+- **R2**: 每个 `changed_surfaces[].surface_id` 必须出现在至少一个 `expected_visual_targets[].surface_id` 中
+- **R3**: 每个 `expected_visual_targets[].target_id` 必须在 `coverage_trace` 中有对应项且 `result !== "NOT_COVERED"`
+- **R4**: `is_new=true` surfaces 的所有 effective required viewports/states/interactions 必须在 coverage trace 的并集中被覆盖（effective set = surface 级值 ?? root 级默认值）
+
+所有新检查：新任务 (`protocol_version >= 2`) → **BLOCK**；遗留任务 → **WARN**。`reviewer-skip-playwright-e2e-testing.yaml` 跳过 8a–8d，但不跳过 Check 7 (`scope_flag_leak`，独立运行)。
+
+### Smoke Tests 扩展
+
+新增 5 个测试（Test 47–50）：
+- Test 47: 无 `visual-test-scope.yaml` → BLOCK `rule_ui_visual_scope_missing`
+- Test 48: scope 有 2 surfaces、report 只覆盖 1 → BLOCK `scope_surface_uncovered`
+- Test 49a: `is_new=true` + required viewport 未覆盖 → BLOCK `scope_is_new_viewport_missing`
+- Test 49b: `is_new=true` + required state 未覆盖 → BLOCK `scope_is_new_state_missing`
+- Test 50: `is_new=true` + 全部覆盖 + DoD Q1–Q16 完整 → ALLOW
+
+Smoke baseline: **51/51 PASS**

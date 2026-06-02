@@ -1617,7 +1617,13 @@ input_artifacts:
   mkdirSync(join(taskDir, 'decisions'), { recursive: true });
   mkdirSync(join(taskDir, '.permits'), { recursive: true });
 
-  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  const projectPath39 = join(tmp, 'project');
+  mkdirSync(join(projectPath39, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath39, 'tests', 'snapshots', 'login-form-desktop-default.png'), 'PNG');
+  writeFileSync(join(projectPath39, 'tests', 'snapshots', 'login-form-desktop-default-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath39, 'tests', 'login.spec.ts'), 'test');
+  writeFileSync(join(projectPath39, 'report.html'), 'html');
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath39}"\n`, 'utf8');
   writeFileSync(join(taskDir, 'events.jsonl'),
     JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-003' }, timestamp: new Date().toISOString() }) + '\n' +
     JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-003' }, timestamp: new Date().toISOString() }) + '\n' +
@@ -1632,7 +1638,64 @@ input_artifacts:
   writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
   writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
   writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
-  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), '# E2E\n', 'utf8');
+  const minimalScope = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), minimalScope, 'utf8');
+  const goodReport = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), goodReport, 'utf8');
   writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
 
   // All required permits
@@ -1685,6 +1748,1984 @@ input_artifacts:
   const hasSkipCheck = r.parsed?.checks_passed?.includes('reviewer_skip_playwright_decision_exists');
   if (allowed && hasSkipCheck) pass('Gate 3 ALLOW with reviewer skip decision for playwright');
   else fail('Gate 3 reviewer skip', `exit=${r.code} allowed=${r.parsed?.allowed} checks=${JSON.stringify(r.parsed?.checks_passed)}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 41: Gate 3 rule_ui + malformed e2e report BLOCKs ───────────────────
+{
+  console.log('\n━━ Test 41: Gate 3 rule_ui + malformed e2e report BLOCKs ━━');
+  const tmp = tmpDir('t41');
+  const taskId = 'smoke-test-g3-ui-005';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-005' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-005' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-005' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-005' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const minimalScope = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), minimalScope, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), '# E2E\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-005.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-005.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-005.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-005.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'e2e_reporter' || v.check === 'e2e_report_parseable');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when e2e report is malformed');
+  else fail('Gate 3 malformed e2e report BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 42: Gate 3 rule_ui + INCOMPLETE status BLOCKs ────────────────────────
+{
+  console.log('\n━━ Test 42: Gate 3 rule_ui + INCOMPLETE status BLOCKs ━━');
+  const tmp = tmpDir('t42');
+  const taskId = 'smoke-test-g3-ui-006';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const badReport = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "INCOMPLETE"
+merge_recommendation: "BLOCK"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: []
+    baselines: []
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-006' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-006' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-006' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-006' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const minimalScope = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), minimalScope, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), badReport, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-006.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-006.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-006.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-006.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasCsViolation = r.parsed?.violations?.some(v => v.check === 'e2e_completion_status');
+  if (blocked && hasCsViolation) pass('Gate 3 BLOCK when e2e report completion_status is INCOMPLETE');
+  else fail('Gate 3 INCOMPLETE status BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 43: Gate 3 rule_ui + coverage NOT_COVERED BLOCKs ─────────────────────
+{
+  console.log('\n━━ Test 43: Gate 3 rule_ui + coverage NOT_COVERED BLOCKs ━━');
+  const tmp = tmpDir('t43');
+  const taskId = 'smoke-test-g3-ui-007';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const badReport = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: []
+    baselines: []
+    viewports_covered: []
+    states_covered: []
+    interactions_covered: []
+    result: "NOT_COVERED"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 0
+  missing_count: 1
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-007' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-007' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-007' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-007' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const minimalScope = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), minimalScope, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), badReport, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-007.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-007.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-007.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-007.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'e2e_coverage_not_covered' || v.check === 'e2e_missing_count');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when e2e coverage_trace has NOT_COVERED');
+  else fail('Gate 3 NOT_COVERED BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 44: Gate 3 rule_ui + untested_targets non-empty BLOCKs ───────────────
+{
+  console.log('\n━━ Test 44: Gate 3 rule_ui + untested_targets non-empty BLOCKs ━━');
+  const tmp = tmpDir('t44');
+  const taskId = 'smoke-test-g3-ui-008';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const badReport = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: []
+    baselines: []
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets:
+  - target_id: "login-form"
+    missing_viewports: []
+    missing_states: []
+    missing_interactions: []
+    reason: "placeholder"
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-008' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-008' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-008' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-008' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const minimalScope = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), minimalScope, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), badReport, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-008.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-008.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-008.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-008.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'e2e_untested_targets');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when e2e untested_targets is non-empty');
+  else fail('Gate 3 untested_targets BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 45: Gate 3 rule_ui + complete coverage ALLOWs ────────────────────────
+{
+  console.log('\n━━ Test 45: Gate 3 rule_ui + complete coverage ALLOWs ━━');
+  const tmp = tmpDir('t45');
+  const taskId = 'smoke-test-g3-ui-009';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const goodReport = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop", "mobile"]
+    states_required: ["default", "error"]
+    interactions_required: ["submit-success"]
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop", "mobile"]
+    states_covered: ["default", "error"]
+    interactions_covered: ["submit-success"]
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 4
+  covered_count: 4
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+
+  const projectPath45 = join(tmp, 'project');
+  mkdirSync(join(projectPath45, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath45, 'tests', 'snapshots', 'login-form-desktop-default.png'), 'PNG');
+  writeFileSync(join(projectPath45, 'tests', 'snapshots', 'login-form-desktop-default-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath45, 'tests', 'login.spec.ts'), 'test');
+  writeFileSync(join(projectPath45, 'report.html'), 'html');
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath45}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-009' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-009' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-009' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-009' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const minimalScope = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+  - name: "mobile"
+    width: 390
+    height: 844
+required_states:
+  - "default"
+  - "error"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), minimalScope, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), goodReport, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-009.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-009.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-009.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-009.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (r.ok && r.parsed?.allowed === true) pass('Gate 3 ALLOW when rule_ui matched with complete coverage');
+  else fail('Gate 3 complete coverage ALLOW', `exit=${r.code} allowed=${r.parsed?.allowed} reason=${r.parsed?.reason}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 46: Gate 3 scope_flags leak BLOCKs ───────────────────────────────────
+{
+  console.log('\n━━ Test 46: Gate 3 scope_flags leak BLOCKs ━━');
+  const tmp = tmpDir('t46');
+  const taskId = 'smoke-test-g3-ui-010';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const cpWithLeak = `task_id: "${taskId}"
+files_touched:
+  - path: "src/components/Button.tsx"
+    action: "modified"
+    lines_changed: 12
+diff_summary: "Update button styles"
+scope_flags:
+  ui: false
+  interaction: false
+  data_model: false
+  schema: false
+  api: false
+`;
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-010' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-010' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), cpWithLeak, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const minimalScope = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), minimalScope, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-010.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-010.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'scope_flag_leak');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when change-package has scope_flags leak');
+  else fail('Gate 3 scope_flags leak BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 47: Gate 3 rule_ui + visual-test-scope.yaml missing BLOCKs ───────────
+{
+  console.log('\n━━ Test 47: Gate 3 rule_ui + visual-test-scope.yaml missing BLOCKs ━━');
+  const tmp = tmpDir('t47');
+  const taskId = 'smoke-test-g3-ui-011';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const goodReport = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-011' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-011' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-011' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-011' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), goodReport, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-011.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-011.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-011.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-011.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'rule_ui_visual_scope_missing');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when visual-test-scope.yaml is missing');
+  else fail('Gate 3 scope missing BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 48: Gate 3 rule_ui + scope surface uncovered BLOCKs ──────────────────
+{
+  console.log('\n━━ Test 48: Gate 3 rule_ui + scope surface uncovered BLOCKs ━━');
+  const tmp = tmpDir('t48');
+  const taskId = 'smoke-test-g3-ui-012';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const scopeWithTwo = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+  - surface_id: "signup-form"
+    type: "page"
+    file_paths: ["src/pages/Signup.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+
+  const reportOneSurface = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-012' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-012' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-012' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-012' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scopeWithTwo, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), reportOneSurface, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-012.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-012.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-012.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-012.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'scope_surface_uncovered');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when scope surface not in expected_visual_targets');
+  else fail('Gate 3 surface uncovered BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 49a: Gate 3 rule_ui + is_new viewport missing BLOCKs ─────────────────
+{
+  console.log('\n━━ Test 49a: Gate 3 rule_ui + is_new viewport missing BLOCKs ━━');
+  const tmp = tmpDir('t49a');
+  const taskId = 'smoke-test-g3-ui-013';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const scopeIsNewVp = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    required_viewports: ["desktop", "mobile"]
+    required_states: ["default"]
+    interactions_to_test: []
+    is_new: true
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+
+  const reportMissingMobile = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-013' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-013' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-013' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-013' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scopeIsNewVp, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), reportMissingMobile, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-013.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-013.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-013.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-013.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'scope_is_new_viewport_missing');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when is_new surface missing required viewport');
+  else fail('Gate 3 is_new viewport missing BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 49b: Gate 3 rule_ui + is_new state missing BLOCKs ────────────────────
+{
+  console.log('\n━━ Test 49b: Gate 3 rule_ui + is_new state missing BLOCKs ━━');
+  const tmp = tmpDir('t49b');
+  const taskId = 'smoke-test-g3-ui-014';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const scopeIsNewSt = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    required_viewports: ["desktop"]
+    required_states: ["default", "error"]
+    interactions_to_test: []
+    is_new: true
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+
+  const reportMissingError = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-014' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-014' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-014' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-014' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scopeIsNewSt, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), reportMissingError, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-014.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-014.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-014.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-014.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  const blocked = !r.ok || r.parsed?.allowed === false;
+  const hasViolation = r.parsed?.violations?.some(v => v.check === 'scope_is_new_state_missing');
+  if (blocked && hasViolation) pass('Gate 3 BLOCK when is_new surface missing required state');
+  else fail('Gate 3 is_new state missing BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 50: Gate 3 rule_ui + is_new full coverage ALLOWs ─────────────────────
+{
+  console.log('\n━━ Test 50: Gate 3 rule_ui + is_new full coverage ALLOWs ━━');
+  const tmp = tmpDir('t50');
+  const taskId = 'smoke-test-g3-ui-015';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const scopeIsNewFull = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    required_viewports: ["desktop", "mobile"]
+    required_states: ["default", "error"]
+    interactions_to_test: ["submit-success"]
+    is_new: true
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+  - name: "mobile"
+    width: 390
+    height: 844
+required_states:
+  - "default"
+  - "error"
+`;
+
+  const reportFull = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop", "mobile"]
+    states_required: ["default", "error"]
+    interactions_required: ["submit-success"]
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop", "mobile"]
+    states_covered: ["default", "error"]
+    interactions_covered: ["submit-success"]
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 4
+  covered_count: 4
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+
+  const projectPath50 = join(tmp, 'project');
+  mkdirSync(join(projectPath50, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath50, 'tests', 'snapshots', 'login-form-desktop-default.png'), 'PNG');
+  writeFileSync(join(projectPath50, 'tests', 'snapshots', 'login-form-desktop-default-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath50, 'tests', 'snapshots', 'login-form-mobile-default.png'), 'PNG');
+  writeFileSync(join(projectPath50, 'tests', 'snapshots', 'login-form-mobile-default-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath50, 'tests', 'snapshots', 'login-form-desktop-error.png'), 'PNG');
+  writeFileSync(join(projectPath50, 'tests', 'snapshots', 'login-form-desktop-error-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath50, 'tests', 'snapshots', 'login-form-mobile-error.png'), 'PNG');
+  writeFileSync(join(projectPath50, 'tests', 'snapshots', 'login-form-mobile-error-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath50, 'tests', 'login.spec.ts'), 'test');
+  writeFileSync(join(projectPath50, 'report.html'), 'html');
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath50}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-015' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-015' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-015' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-015' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scopeIsNewFull, 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), reportFull, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-015.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-015.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-015.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-015.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (r.ok && r.parsed?.allowed === true) pass('Gate 3 ALLOW when is_new surface fully covered');
+  else fail('Gate 3 is_new full coverage ALLOW', `exit=${r.code} allowed=${r.parsed?.allowed} reason=${r.parsed?.reason}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 51: Evidence Gate — screenshot file missing → BLOCK ──────────────────
+{
+  console.log('\n━━ Test 51: Evidence Gate — screenshot file missing → BLOCK ━━');
+  const tmp = tmpDir('t51');
+  const taskId = 'smoke-test-g3-ui-016';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const projectPath51 = join(tmp, 'project');
+  mkdirSync(join(projectPath51, 'tests', 'snapshots'), { recursive: true });
+  // Only create baseline, intentionally skip screenshot to trigger evidence_screenshot_missing
+  writeFileSync(join(projectPath51, 'tests', 'snapshots', 'login-form-desktop-default-baseline.png'), 'PNG');
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath51}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-016' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-016' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-016' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-016' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const scope51 = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scope51, 'utf8');
+  const report51 = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), report51, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-016.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-016.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-016.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-016.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (!r.ok && r.parsed?.allowed === false && r.parsed?.violations?.some(v => v.check === 'evidence_screenshot_missing'))
+    pass('Gate 3 BLOCK when screenshot file missing on disk');
+  else fail('Gate 3 evidence screenshot missing BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 52: Evidence Gate — screenshots empty → BLOCK ────────────────────────
+{
+  console.log('\n━━ Test 52: Evidence Gate — screenshots empty → BLOCK ━━');
+  const tmp = tmpDir('t52');
+  const taskId = 'smoke-test-g3-ui-017';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const projectPath52 = join(tmp, 'project');
+  mkdirSync(join(projectPath52, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath52}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-017' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-017' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-017' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-017' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const scope52 = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scope52, 'utf8');
+  const report52 = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: []
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), report52, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-017.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-017.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-017.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-017.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (!r.ok && r.parsed?.allowed === false && r.parsed?.violations?.some(v => v.check === 'evidence_screenshots_empty'))
+    pass('Gate 3 BLOCK when screenshots array is empty');
+  else fail('Gate 3 evidence screenshots empty BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 53: Evidence Gate — is_new surface no baseline/reason → BLOCK ────────
+{
+  console.log('\n━━ Test 53: Evidence Gate — is_new surface no baseline/reason → BLOCK ━━');
+  const tmp = tmpDir('t53');
+  const taskId = 'smoke-test-g3-ui-018';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const projectPath53 = join(tmp, 'project');
+  mkdirSync(join(projectPath53, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath53, 'tests', 'snapshots', 'new-widget-desktop-default.png'), 'PNG');
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath53}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-018' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-018' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-018' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-018' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const scope53 = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "new-widget"
+    type: "component"
+    file_paths: ["src/components/NewWidget.tsx"]
+    is_new: true
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scope53, 'utf8');
+  const report53 = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "new-widget"
+    surface_id: "new-widget"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "new-widget"
+    test_files: ["tests/new-widget.spec.ts"]
+    screenshots: ["tests/snapshots/new-widget-desktop-default.png"]
+    baselines: []
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), report53, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-018.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-018.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-018.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-018.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (!r.ok && r.parsed?.allowed === false && r.parsed?.violations?.some(v => v.check === 'evidence_baseline_missing'))
+    pass('Gate 3 BLOCK when is_new surface has no baseline and no new_baseline_reason');
+  else fail('Gate 3 is_new baseline missing BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 54: Evidence Gate — all evidence files exist → ALLOW ─────────────────
+{
+  console.log('\n━━ Test 54: Evidence Gate — all evidence files exist → ALLOW ━━');
+  const tmp = tmpDir('t54');
+  const taskId = 'smoke-test-g3-ui-019';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const projectPath54 = join(tmp, 'project');
+  mkdirSync(join(projectPath54, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath54, 'tests', 'login.spec.ts'), 'test');
+  writeFileSync(join(projectPath54, 'tests', 'snapshots', 'login-form-desktop-default.png'), 'PNG');
+  writeFileSync(join(projectPath54, 'tests', 'snapshots', 'login-form-desktop-default-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath54, 'report.html'), '<html></html>');
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath54}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-019' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-019' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-019' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-019' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const scope54 = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scope54, 'utf8');
+  const report54 = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), report54, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-019.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-019.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-019.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-019.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (r.ok && r.parsed?.allowed === true) pass('Gate 3 ALLOW when all evidence files exist on disk');
+  else fail('Gate 3 evidence all exists ALLOW', `exit=${r.code} allowed=${r.parsed?.allowed} reason=${r.parsed?.reason}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 55: Path Existence Gate — baseline file missing → BLOCK ──────────────
+{
+  console.log('\n━━ Test 55: Path Existence Gate — baseline file missing → BLOCK ━━');
+  const tmp = tmpDir('t55');
+  const taskId = 'smoke-test-g3-ui-020';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const projectPath55 = join(tmp, 'project');
+  mkdirSync(join(projectPath55, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath55, 'tests', 'login.spec.ts'), 'test');
+  writeFileSync(join(projectPath55, 'tests', 'snapshots', 'login-form-desktop-default.png'), 'PNG');
+  writeFileSync(join(projectPath55, 'report.html'), '<html></html>');
+  // baseline intentionally missing
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath55}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-020' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-020' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-020' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-020' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const scope55 = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scope55, 'utf8');
+  const report55 = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), report55, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-020.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-020.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-020.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-020.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (!r.ok && r.parsed?.allowed === false && r.parsed?.violations?.some(v => v.check === 'evidence_baseline_file_missing'))
+    pass('Gate 3 BLOCK when baseline file missing on disk');
+  else fail('Gate 3 baseline file missing BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 56: Path Existence Gate — html_report_path missing → BLOCK ───────────
+{
+  console.log('\n━━ Test 56: Path Existence Gate — html_report_path missing → BLOCK ━━');
+  const tmp = tmpDir('t56');
+  const taskId = 'smoke-test-g3-ui-021';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const projectPath56 = join(tmp, 'project');
+  mkdirSync(join(projectPath56, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath56, 'tests', 'login.spec.ts'), 'test');
+  writeFileSync(join(projectPath56, 'tests', 'snapshots', 'login-form-desktop-default.png'), 'PNG');
+  writeFileSync(join(projectPath56, 'tests', 'snapshots', 'login-form-desktop-default-baseline.png'), 'PNG');
+  // report.html intentionally missing
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath56}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-021' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-021' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-021' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-021' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const scope56 = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scope56, 'utf8');
+  const report56 = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), report56, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-021.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-021.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-021.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-021.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (!r.ok && r.parsed?.allowed === false && r.parsed?.violations?.some(v => v.check === 'evidence_html_report_missing'))
+    pass('Gate 3 BLOCK when html_report_path file missing on disk');
+  else fail('Gate 3 html report missing BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 57: Path Existence Gate — test_file missing → BLOCK ──────────────────
+{
+  console.log('\n━━ Test 57: Path Existence Gate — test_file missing → BLOCK ━━');
+  const tmp = tmpDir('t57');
+  const taskId = 'smoke-test-g3-ui-022';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const projectPath57 = join(tmp, 'project');
+  mkdirSync(join(projectPath57, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath57, 'tests', 'snapshots', 'login-form-desktop-default.png'), 'PNG');
+  writeFileSync(join(projectPath57, 'tests', 'snapshots', 'login-form-desktop-default-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath57, 'report.html'), '<html></html>');
+  // tests/login.spec.ts intentionally missing
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath57}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-022' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-022' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-022' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-022' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const scope57 = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scope57, 'utf8');
+  const report57 = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), report57, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-022.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-022.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-022.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-022.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (!r.ok && r.parsed?.allowed === false && r.parsed?.violations?.some(v => v.check === 'evidence_test_file_missing'))
+    pass('Gate 3 BLOCK when test file missing on disk');
+  else fail('Gate 3 test file missing BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 58: Path Existence Gate — diff_path missing → BLOCK ──────────────────
+{
+  console.log('\n━━ Test 58: Path Existence Gate — diff_path missing → BLOCK ━━');
+  const tmp = tmpDir('t58');
+  const taskId = 'smoke-test-g3-ui-023';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const projectPath58 = join(tmp, 'project');
+  mkdirSync(join(projectPath58, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath58, 'tests', 'login.spec.ts'), 'test');
+  writeFileSync(join(projectPath58, 'tests', 'snapshots', 'login-form-desktop-default.png'), 'PNG');
+  writeFileSync(join(projectPath58, 'tests', 'snapshots', 'login-form-desktop-default-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath58, 'report.html'), '<html></html>');
+  // diff file intentionally missing
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath58}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-023' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-023' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-023' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-023' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const scope58 = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scope58, 'utf8');
+  const report58 = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    diff_paths: ["tests/snapshots/login-form-desktop-default-diff.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), report58, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-023.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-023.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-023.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-023.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (!r.ok && r.parsed?.allowed === false && r.parsed?.violations?.some(v => v.check === 'evidence_diff_file_missing'))
+    pass('Gate 3 BLOCK when diff file missing on disk');
+  else fail('Gate 3 diff file missing BLOCK', `exit=${r.code} allowed=${r.parsed?.allowed} violations=${JSON.stringify(r.parsed?.violations?.map(v => v.check))}`);
+
+  rmSync(taskDir, { recursive: true, force: true });
+}
+
+// ── Test 59: Path Existence Gate — all evidence files created → ALLOW ─────────
+{
+  console.log('\n━━ Test 59: Path Existence Gate — all evidence files created → ALLOW ━━');
+  const tmp = tmpDir('t59');
+  const taskId = 'smoke-test-g3-ui-024';
+  const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
+  mkdirSync(join(taskDir, 'artifacts'), { recursive: true });
+  mkdirSync(join(taskDir, 'decisions'), { recursive: true });
+  mkdirSync(join(taskDir, '.permits'), { recursive: true });
+
+  const projectPath59 = join(tmp, 'project');
+  mkdirSync(join(projectPath59, 'tests', 'snapshots'), { recursive: true });
+  writeFileSync(join(projectPath59, 'tests', 'login.spec.ts'), 'test');
+  writeFileSync(join(projectPath59, 'tests', 'snapshots', 'login-form-desktop-default.png'), 'PNG');
+  writeFileSync(join(projectPath59, 'tests', 'snapshots', 'login-form-desktop-default-baseline.png'), 'PNG');
+  writeFileSync(join(projectPath59, 'tests', 'snapshots', 'login-form-desktop-default-diff.png'), 'PNG');
+  writeFileSync(join(projectPath59, 'report.html'), '<html></html>');
+  writeFileSync(join(taskDir, 'task.yaml'), `task_id: "${taskId}"\nprotocol_version: "2"\ncurrent_phase: "phase_d_3"\nstatus: "in_progress"\nmodule_slug: "test"\nproject_path: "${projectPath59}"\n`, 'utf8');
+  writeFileSync(join(taskDir, 'events.jsonl'),
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'full-stack-developer', handoff_id: 'handoff-D1-024' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'code-reviewer', handoff_id: 'handoff-D2-024' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'webapp-consistency-audit', handoff_id: 'handoff-D2-wca-024' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'skill_dispatched', payload: { skill: 'playwright-e2e-testing', handoff_id: 'handoff-D2-pw-024' }, timestamp: new Date().toISOString() }) + '\n' +
+    JSON.stringify({ event_type: 'phase_completed', payload: { phase: 'phase_d_2' }, timestamp: new Date().toISOString() }) + '\n',
+    'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-1.yaml'), 'decision: GO\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'gate-2.yaml'), 'decision: PROCEED\n', 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'pre-gate-check-3.yaml'), 'status: passed\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'product-spec.md'), '# PS\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'implementation-scope.md'), '# Scope\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'change-package-001.yaml'), '# CP\n', 'utf8');
+  writeFileSync(join(taskDir, 'artifacts', 'code-reviewer-report.yaml'), '# CR\n', 'utf8');
+  const scope59 = `schema_version: "1.0"
+changed_surfaces:
+  - surface_id: "login-form"
+    type: "page"
+    file_paths: ["src/pages/Login.tsx"]
+    is_new: false
+required_viewports:
+  - name: "desktop"
+    width: 1440
+    height: 900
+required_states: ["default"]
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'visual-test-scope.yaml'), scope59, 'utf8');
+  const report59 = `reporter: "playwright-e2e-testing"
+execution_date: "2026-05-28"
+completion_status: "COMPLETE"
+merge_recommendation: "ALLOW"
+expected_visual_targets:
+  - target_id: "login-form"
+    surface_id: "login-form"
+    viewports_required: ["desktop"]
+    states_required: ["default"]
+    interactions_required: []
+coverage_trace:
+  - target_id: "login-form"
+    test_files: ["tests/login.spec.ts"]
+    screenshots: ["tests/snapshots/login-form-desktop-default.png"]
+    baselines: ["tests/snapshots/login-form-desktop-default-baseline.png"]
+    diff_paths: ["tests/snapshots/login-form-desktop-default-diff.png"]
+    viewports_covered: ["desktop"]
+    states_covered: ["default"]
+    interactions_covered: []
+    result: "PASS"
+untested_targets: []
+coverage_summary:
+  expected_count: 1
+  covered_count: 1
+  missing_count: 0
+  coverage_percent: 100
+definition_of_done:
+  Q1_self_audit: "PASS"
+  Q2_visual_states: "PASS"
+  Q3_layering_occlusion: "PASS"
+  Q4_am_hub_coverage: "PASS"
+  Q5_reports_generated: "PASS"
+  Q6_failures_classified: "PASS"
+  Q7_baseline_governance: "PASS"
+  Q8_merge_recommendation: "PASS"
+  Q9_interaction_happy_path: "N/A"
+  Q10_search_data_verify: "N/A"
+  Q11_design_compliance: "N/A"
+  Q12_negative_path: "N/A"
+  Q13_coverage_trace: "PASS"
+  Q14_untested_targets: "PASS"
+  Q15_missing_count: "PASS"
+  Q16_expected_targets: "PASS"
+html_report_path: "report.html"
+`;
+  writeFileSync(join(taskDir, 'artifacts', 'e2e-visual-test-report.yaml'), report59, 'utf8');
+  writeFileSync(join(taskDir, 'decisions', 'routing-decision-D.yaml'), 'config_rule_matched: rule_ui\n', 'utf8');
+
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-full-stack-developer-handoff-D1-024.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-code-reviewer-handoff-D2-024.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-webapp-consistency-audit-handoff-D2-wca-024.json'), '{}', 'utf8');
+  writeFileSync(join(taskDir, '.permits', 'dispatch_skill-playwright-e2e-testing-handoff-D2-pw-024.json'), '{}', 'utf8');
+
+  const r = runGate(`present_gate --task-dir "${taskDir}" --gate 3`);
+  if (r.ok && r.parsed?.allowed === true) pass('Gate 3 ALLOW when all evidence files (incl diff) exist on disk');
+  else fail('Gate 3 evidence all incl diff ALLOW', `exit=${r.code} allowed=${r.parsed?.allowed} reason=${r.parsed?.reason}`);
 
   rmSync(taskDir, { recursive: true, force: true });
 }

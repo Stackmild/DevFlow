@@ -73,6 +73,20 @@ export function evaluateDoD(report: any): Record<string, 'PASS' | 'FAIL' | 'N/A'
           c.error_path === 'N/A' || ['PASS', 'FAIL'].includes(c.error_path)
         ) ? 'PASS' : 'FAIL')
       : 'N/A',
+
+    // Q13: Coverage trace — no NOT_COVERED entries
+    Q13: report.coverage_trace?.length > 0
+      ? (report.coverage_trace.every((c: any) => c.result !== 'NOT_COVERED') ? 'PASS' : 'FAIL')
+      : 'N/A',
+
+    // Q14: Untested targets must be empty
+    Q14: report.untested_targets?.length > 0 ? 'FAIL' : 'PASS',
+
+    // Q15: Missing count must be 0
+    Q15: (report.coverage_summary?.missing_count ?? 0) === 0 ? 'PASS' : 'FAIL',
+
+    // Q16: Expected visual targets non-empty when rule_ui
+    Q16: report.expected_visual_targets?.length > 0 ? 'PASS' : 'FAIL',
   };
 }
 

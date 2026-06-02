@@ -96,7 +96,7 @@ monitor/               # incremental audit 输出
 | `post_gate3_write` | Gate 3 ACCEPT 后写入约束 |
 | `complete_task` | closeout 前检查，并写回 `status: completed` / `completed_at` |
 | `dispatch_skill` | sub-skill dispatch prerequisite 检查 |
-| `present_gate` | Gate 展示前检查，上游 permit backpressure |
+| `present_gate` | Gate 展示前检查，上游 permit backpressure；Gate 3 额外验证 E2E 报告内容、scope ↔ report reconciliation、scope flag 防漏 |
 | `transition` | 原子写 `phase_completed` + `phase_entered`，更新 `task.yaml.current_phase` |
 | `verify_state` | D1-D7 状态机一致性对账 |
 | `finalize_dispatches` | PostToolUse fallback，把 `dispatch_authorized-*` finalize 为 `dispatch_skill-*` |
@@ -195,7 +195,7 @@ rg --files -g '*.mjs' scripts | xargs -n1 node --check
 node scripts/smoke-devflow-hardening.mjs
 ```
 
-当前基线：`smoke-devflow-hardening.mjs` 40/40 PASS。
+当前基线：`smoke-devflow-hardening.mjs` 51/51 PASS。
 
 ## 关键文件
 

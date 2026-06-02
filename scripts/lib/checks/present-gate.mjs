@@ -27,6 +27,545 @@ function isReviewerReport(filename) {
   return Object.values(REVIEWER_REPORT_ALIASES).includes(filename);
 }
 
+// ── Check 6/8 helpers: E2E report & scope parsing ─────────────────────────
+
+function extractYamlBlock(text, key) {
+  const lines = text.split('\n');
+  let startIdx = -1;
+  let baseIndent = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed === key + ':' || trimmed.startsWith(key + ':')) {
+      startIdx = i;
+      baseIndent = lines[i].search(/\S/);
+      break;
+    }
+  }
+  if (startIdx === -1) return null;
+  const block = [];
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const line = lines[i];
+    const rawIndent = line.search(/\S/);
+    if (rawIndent === -1) { block.push(line); continue; }
+    if (rawIndent <= baseIndent) break;
+    block.push(line);
+  }
+  return block;
+}
+
+function parseListField(text, key) {
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.startsWith(key + ': [')) {
+      const m = trimmed.match(new RegExp(key + ': \\[(.*?)\\]'));
+      if (m) return m[1].split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+    }
+    if (trimmed === key + ':') {
+      const items = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        const l2 = lines[j].trim();
+        if (!l2.startsWith('- ')) break;
+        items.push(l2.replace(/^- \s*/, '').replace(/^["']|["']$/g, ''));
+        i = j;
+      }
+      return items.length > 0 ? items : null;
+    }
+  }
+  return null;
+}
+
+function parseRootRequiredViewports(scopeText) {
+  const block = extractYamlBlock(scopeText, 'required_viewports');
+  if (!block) return [];
+  const names = [];
+  for (const line of block) {
+    const trimmed = line.trim();
+    const m = trimmed.match(/^name:\s*["']?([^"'\n#]+)/);
+    if (m) names.push(m[1].trim());
+  }
+  return names;
+}
+
+function parseRootRequiredStates(scopeText) {
+  return parseListField(scopeText, 'required_states') || [];
+}
+
+function parseChangedSurfaces(scopeText) {
+  const block = extractYamlBlock(scopeText, 'changed_surfaces');
+  if (!block) return null;
+  const entries = [];
+  let current = null;
+  for (const line of block) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ')) {
+      if (current) entries.push(current);
+      current = { text: line + '\n' };
+    } else if (current) {
+      current.text += line + '\n';
+    }
+  }
+  if (current) entries.push(current);
+  return entries.map(e => {
+    const text = e.text;
+    const sid = text.match(/surface_id:\s*["']?([^"'\n#]+)/);
+    const type = text.match(/type:\s*["']?([^"'\n#]+)/);
+    const isNew = text.match(/is_new:\s*(true|false)/i);
+    return {
+      surface_id: sid ? sid[1].trim() : '',
+      type: type ? type[1].trim() : '',
+      file_paths: parseListField(text, 'file_paths') || [],
+      required_viewports: parseListField(text, 'required_viewports'),
+      required_states: parseListField(text, 'required_states'),
+      interactions_to_test: parseListField(text, 'interactions_to_test'),
+      is_new: isNew ? isNew[1].toLowerCase() === 'true' : false,
+    };
+  });
+}
+
+function parseExpectedVisualTargets(reportText) {
+  const block = extractYamlBlock(reportText, 'expected_visual_targets');
+  if (!block) return null;
+  const entries = [];
+  let current = null;
+  for (const line of block) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ')) {
+      if (current) entries.push(current);
+      current = { text: line + '\n' };
+    } else if (current) {
+      current.text += line + '\n';
+    }
+  }
+  if (current) entries.push(current);
+  return entries.map(e => {
+    const text = e.text;
+    const tid = text.match(/target_id:\s*["']?([^"'\n#]+)/);
+    const sid = text.match(/surface_id:\s*["']?([^"'\n#]+)/);
+    return {
+      target_id: tid ? tid[1].trim() : '',
+      surface_id: sid ? sid[1].trim() : '',
+      viewports_required: parseListField(text, 'viewports_required') || [],
+      states_required: parseListField(text, 'states_required') || [],
+      interactions_required: parseListField(text, 'interactions_required') || [],
+    };
+  });
+}
+
+function parseCoverageTrace(reportText) {
+  const block = extractYamlBlock(reportText, 'coverage_trace');
+  if (!block) return null;
+  const entries = [];
+  let current = null;
+  for (const line of block) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ')) {
+      if (current) entries.push(current);
+      current = { text: line + '\n' };
+    } else if (current) {
+      current.text += line + '\n';
+    }
+  }
+  if (current) entries.push(current);
+  return entries.map(e => {
+    const text = e.text;
+    const tid = text.match(/target_id:\s*["']?([^"'\n#]+)/);
+    const result = text.match(/result:\s*["']?([^"'\n#]+)/);
+    return {
+      target_id: tid ? tid[1].trim() : '',
+      test_files: parseListField(text, 'test_files') || [],
+      screenshots: parseListField(text, 'screenshots') || [],
+      baselines: parseListField(text, 'baselines') || [],
+      diff_paths: parseListField(text, 'diff_paths') || [],
+      baseline_reason: (text.match(/baseline_reason:\s*["']?([^"'\n#]+)/) || [null, ''])[1].trim(),
+      new_baseline_reason: (text.match(/new_baseline_reason:\s*["']?([^"'\n#]+)/) || [null, ''])[1].trim(),
+      viewports_covered: parseListField(text, 'viewports_covered') || [],
+      states_covered: parseListField(text, 'states_covered') || [],
+      interactions_covered: parseListField(text, 'interactions_covered') || [],
+      result: result ? result[1].trim() : '',
+    };
+  });
+}
+
+function parseHtmlReportPath(reportText) {
+  const m = reportText.match(/html_report_path:\s*["']?([^"'\n#]+)/);
+  return m ? m[1].trim() : '';
+}
+
+function parseVisualDiffArtifacts(reportText) {
+  const block = extractYamlBlock(reportText, 'visual_diff_artifacts');
+  if (!block) return [];
+  const entries = [];
+  let current = null;
+  for (const line of block) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('- ')) {
+      if (current) entries.push(current);
+      current = { text: line + '\n' };
+    } else if (current) {
+      current.text += line + '\n';
+    }
+  }
+  if (current) entries.push(current);
+  return entries.map(e => {
+    const text = e.text;
+    const test = text.match(/test:\s*["']?([^"'\n#]+)/);
+    return {
+      test: test ? test[1].trim() : '',
+      expected_path: (text.match(/expected_path:\s*["']?([^"'\n#]+)/) || [null, ''])[1].trim(),
+      actual_path: (text.match(/actual_path:\s*["']?([^"'\n#]+)/) || [null, ''])[1].trim(),
+      diff_path: (text.match(/diff_path:\s*["']?([^"'\n#]+)/) || [null, ''])[1].trim(),
+    };
+  }).filter(e => e.test || e.diff_path);
+}
+
+function parseDoDMap(reportText) {
+  const block = extractYamlBlock(reportText, 'definition_of_done');
+  if (!block) return {};
+  const map = {};
+  for (const line of block) {
+    const trimmed = line.trim();
+    const m = trimmed.match(/^(Q\d+_[^:]+):\s*["']?([^"'\n#]+)/);
+    if (m) {
+      map[m[1]] = m[2].trim();
+    }
+  }
+  return map;
+}
+
+function validateDoDCompleteness(reportText, isNewTask) {
+  const dod = parseDoDMap(reportText);
+  const violations = [];
+  const warnings = [];
+  const checksPass = [];
+
+  // Check Q1-Q16 all present
+  const missing = [];
+  for (let i = 1; i <= 16; i++) {
+    const found = Object.keys(dod).some(k => k.startsWith('Q' + i + '_'));
+    if (!found) missing.push('Q' + i);
+  }
+  if (missing.length > 0) {
+    const detail = `definition_of_done missing keys: ${missing.join(', ')}`;
+    if (isNewTask) {
+      violations.push({ check: 'e2e_dod_incomplete', severity: 'BLOCK', detail });
+    } else {
+      warnings.push(detail);
+    }
+  } else {
+    checksPass.push('e2e_dod_complete');
+  }
+
+  // Validate values per schema
+  const mustPass = ['Q1','Q2','Q3','Q5','Q6','Q7','Q8','Q14','Q15','Q16'];
+  const mayBeNa = ['Q4','Q9','Q10','Q11','Q12','Q13'];
+  const invalid = [];
+  for (const [key, value] of Object.entries(dod)) {
+    const qm = key.match(/^(Q\d+)_/);
+    if (!qm) continue;
+    const q = qm[1];
+    const upper = value.toUpperCase();
+    if (mustPass.includes(q)) {
+      if (upper !== 'PASS') invalid.push(`${key}=${value}`);
+    } else if (mayBeNa.includes(q)) {
+      if (upper !== 'PASS' && upper !== 'N/A') invalid.push(`${key}=${value}`);
+    }
+  }
+  if (invalid.length > 0) {
+    const detail = `definition_of_done has invalid values: ${invalid.join(', ')}`;
+    if (isNewTask) {
+      violations.push({ check: 'e2e_dod_value_invalid', severity: 'BLOCK', detail });
+    } else {
+      warnings.push(detail);
+    }
+  } else {
+    checksPass.push('e2e_dod_values_valid');
+  }
+
+  return { violations, warnings, checksPass };
+}
+
+function reconcileScopeWithReport(scopeText, reportText, isNewTask) {
+  const violations = [];
+  const warnings = [];
+  const checksPass = [];
+
+  const surfaces = parseChangedSurfaces(scopeText);
+  const targets = parseExpectedVisualTargets(reportText);
+  const trace = parseCoverageTrace(reportText);
+
+  if (!surfaces || !targets || !trace) {
+    return { violations, warnings, checksPass };
+  }
+
+  const rootViewports = parseRootRequiredViewports(scopeText);
+  const rootStates = parseRootRequiredStates(scopeText);
+
+  // R2: every changed_surfaces surface_id must appear in at least one expected_visual_targets
+  const targetSurfaceIds = new Set(targets.map(t => t.surface_id));
+  let r2Fail = false;
+  for (const surface of surfaces) {
+    if (!targetSurfaceIds.has(surface.surface_id)) {
+      r2Fail = true;
+      const detail = `Scope surface "${surface.surface_id}" not found in expected_visual_targets`;
+      if (isNewTask) {
+        violations.push({ check: 'scope_surface_uncovered', severity: 'BLOCK', detail });
+      } else {
+        warnings.push(detail);
+      }
+    }
+  }
+  if (!r2Fail) checksPass.push('scope_surface_covered');
+
+  // R3: every expected_visual_targets target_id must have coverage_trace with result !== NOT_COVERED
+  const traceByTarget = new Map();
+  for (const t of trace) {
+    traceByTarget.set(t.target_id, t);
+  }
+  let r3Fail = false;
+  for (const target of targets) {
+    const t = traceByTarget.get(target.target_id);
+    if (!t || t.result === 'NOT_COVERED') {
+      r3Fail = true;
+      const detail = `Target "${target.target_id}" missing coverage or result=NOT_COVERED`;
+      if (isNewTask) {
+        violations.push({ check: 'scope_target_not_covered', severity: 'BLOCK', detail });
+      } else {
+        warnings.push(detail);
+      }
+    }
+  }
+  if (!r3Fail) checksPass.push('scope_targets_covered');
+
+  // R4: is_new=true surfaces must have all required viewports/states covered
+  for (const surface of surfaces) {
+    if (!surface.is_new) continue;
+
+    const effectiveViewports = surface.required_viewports !== null ? surface.required_viewports : rootViewports;
+    const effectiveStates = surface.required_states !== null ? surface.required_states : rootStates;
+
+    // Find all targets for this surface
+    const surfaceTargets = targets.filter(t => t.surface_id === surface.surface_id);
+    if (surfaceTargets.length === 0) continue;
+
+    // Coverage via trace
+    const coveredViewports = new Set();
+    const coveredStates = new Set();
+    for (const t of surfaceTargets) {
+      const tr = traceByTarget.get(t.target_id);
+      if (!tr || tr.result === 'NOT_COVERED') continue;
+      for (const v of tr.viewports_covered) coveredViewports.add(v);
+      for (const s of tr.states_covered) coveredStates.add(s);
+    }
+
+    for (const vp of effectiveViewports) {
+      if (!coveredViewports.has(vp)) {
+        const detail = `is_new surface "${surface.surface_id}" missing required viewport "${vp}" in coverage`;
+        if (isNewTask) {
+          violations.push({ check: 'scope_is_new_viewport_missing', severity: 'BLOCK', detail });
+        } else {
+          warnings.push(detail);
+        }
+      }
+    }
+
+    for (const st of effectiveStates) {
+      if (!coveredStates.has(st)) {
+        const detail = `is_new surface "${surface.surface_id}" missing required state "${st}" in coverage`;
+        if (isNewTask) {
+          violations.push({ check: 'scope_is_new_state_missing', severity: 'BLOCK', detail });
+        } else {
+          warnings.push(detail);
+        }
+      }
+    }
+  }
+
+  return { violations, warnings, checksPass };
+}
+
+// ── Check 9 helper: Evidence Gate ─────────────────────────────────────────
+function validateEvidence(reportText, projectPath, isNewTask) {
+  const violations = [];
+  const warnings = [];
+  const checksPass = [];
+
+  // project_path 缺失
+  if (!projectPath) {
+    const detail = 'project_path is missing — cannot verify evidence file existence on disk';
+    if (isNewTask) violations.push({ check: 'evidence_project_path_missing', severity: 'BLOCK', detail });
+    else warnings.push(detail);
+  }
+
+  const trace = parseCoverageTrace(reportText);
+  if (!trace || trace.length === 0) return { violations, warnings, checksPass };
+
+  const targets = parseExpectedVisualTargets(reportText);
+  const targetInteractionsRequired = new Map();
+  if (targets) {
+    for (const t of targets) {
+      targetInteractionsRequired.set(t.target_id, t.interactions_required || []);
+    }
+  }
+
+  const htmlReportPath = parseHtmlReportPath(reportText);
+  const visualDiffs = parseVisualDiffArtifacts(reportText);
+
+  for (const entry of trace) {
+    if (entry.result !== 'PASS') continue;
+
+    // test_files non-empty
+    if (!entry.test_files || entry.test_files.length === 0) {
+      const detail = `Target "${entry.target_id}" result=PASS but test_files is empty`;
+      if (isNewTask) violations.push({ check: 'evidence_test_files_empty', severity: 'BLOCK', detail });
+      else warnings.push(detail);
+    } else {
+      checksPass.push('evidence_test_files');
+    }
+
+    // test_files exist (if projectPath available)
+    if (projectPath && entry.test_files && entry.test_files.length > 0) {
+      let allExist = true;
+      for (const f of entry.test_files) {
+        const fullPath = join(projectPath, f);
+        if (!existsSync(fullPath)) {
+          allExist = false;
+          const detail = `Target "${entry.target_id}" test file missing: ${f}`;
+          if (isNewTask) violations.push({ check: 'evidence_test_file_missing', severity: 'BLOCK', detail });
+          else warnings.push(detail);
+        }
+      }
+      if (allExist) checksPass.push('evidence_test_files_exist');
+    }
+
+    // screenshots non-empty
+    if (!entry.screenshots || entry.screenshots.length === 0) {
+      const detail = `Target "${entry.target_id}" result=PASS but screenshots is empty`;
+      if (isNewTask) violations.push({ check: 'evidence_screenshots_empty', severity: 'BLOCK', detail });
+      else warnings.push(detail);
+    } else {
+      checksPass.push('evidence_screenshots');
+    }
+
+    // screenshots files exist (if projectPath available)
+    if (projectPath && entry.screenshots && entry.screenshots.length > 0) {
+      let allExist = true;
+      for (const s of entry.screenshots) {
+        const fullPath = join(projectPath, s);
+        if (!existsSync(fullPath)) {
+          allExist = false;
+          const detail = `Target "${entry.target_id}" screenshot file missing: ${s}`;
+          if (isNewTask) violations.push({ check: 'evidence_screenshot_missing', severity: 'BLOCK', detail });
+          else warnings.push(detail);
+        }
+      }
+      if (allExist) checksPass.push('evidence_screenshots_exist');
+    }
+
+    // baselines non-empty OR baseline_reason / new_baseline_reason
+    const hasBaselines = entry.baselines && entry.baselines.length > 0;
+    const hasBaselineReason = entry.baseline_reason && entry.baseline_reason.length > 0;
+    const hasNewBaselineReason = entry.new_baseline_reason && entry.new_baseline_reason.length > 0;
+    if (!hasBaselines && !hasBaselineReason && !hasNewBaselineReason) {
+      const detail = `Target "${entry.target_id}" result=PASS but no baselines and no baseline_reason/new_baseline_reason`;
+      if (isNewTask) violations.push({ check: 'evidence_baseline_missing', severity: 'BLOCK', detail });
+      else warnings.push(detail);
+    } else {
+      checksPass.push('evidence_baseline');
+    }
+
+    // baselines exist (if projectPath available)
+    if (projectPath && entry.baselines && entry.baselines.length > 0) {
+      let allExist = true;
+      for (const b of entry.baselines) {
+        const fullPath = join(projectPath, b);
+        if (!existsSync(fullPath)) {
+          allExist = false;
+          const detail = `Target "${entry.target_id}" baseline file missing: ${b}`;
+          if (isNewTask) violations.push({ check: 'evidence_baseline_file_missing', severity: 'BLOCK', detail });
+          else warnings.push(detail);
+        }
+      }
+      if (allExist) checksPass.push('evidence_baselines_exist');
+    }
+
+    // html_report_path field present OR visual_diff_artifacts at least one entry OR per-entry diff_paths
+    const hasHtmlReportField = htmlReportPath.length > 0;
+    const hasVisualDiffs = visualDiffs && visualDiffs.length > 0;
+    const entryHasDiffPaths = entry.diff_paths && entry.diff_paths.length > 0;
+    if (!hasHtmlReportField && !hasVisualDiffs && !entryHasDiffPaths) {
+      const detail = `Target "${entry.target_id}" result=PASS but no html_report_path, visual_diff_artifacts, or diff_paths`;
+      if (isNewTask) violations.push({ check: 'evidence_report_or_diff_missing', severity: 'BLOCK', detail });
+      else warnings.push(detail);
+    } else {
+      checksPass.push('evidence_report_or_diff');
+    }
+
+    // diff_paths exist (if projectPath available)
+    if (projectPath && entry.diff_paths && entry.diff_paths.length > 0) {
+      let allExist = true;
+      for (const d of entry.diff_paths) {
+        const fullPath = join(projectPath, d);
+        if (!existsSync(fullPath)) {
+          allExist = false;
+          const detail = `Target "${entry.target_id}" diff file missing: ${d}`;
+          if (isNewTask) violations.push({ check: 'evidence_diff_file_missing', severity: 'BLOCK', detail });
+          else warnings.push(detail);
+        }
+      }
+      if (allExist) checksPass.push('evidence_diff_paths_exist');
+    }
+
+    // interactions coverage
+    const requiredInteractions = targetInteractionsRequired.get(entry.target_id) || [];
+    if (requiredInteractions.length > 0) {
+      const covered = new Set(entry.interactions_covered || []);
+      const missing = requiredInteractions.filter(i => !covered.has(i));
+      if (missing.length > 0) {
+        const detail = `Target "${entry.target_id}" missing required interactions: ${missing.join(', ')}`;
+        if (isNewTask) violations.push({ check: 'evidence_interactions_missing', severity: 'BLOCK', detail });
+        else warnings.push(detail);
+      } else {
+        checksPass.push('evidence_interactions');
+      }
+    }
+  }
+
+  // report-level html_report_path existence
+  if (projectPath && htmlReportPath.length > 0) {
+    const fullPath = join(projectPath, htmlReportPath);
+    if (!existsSync(fullPath)) {
+      const detail = `HTML report file missing: ${htmlReportPath}`;
+      if (isNewTask) violations.push({ check: 'evidence_html_report_missing', severity: 'BLOCK', detail });
+      else warnings.push(detail);
+    } else {
+      checksPass.push('evidence_html_report_exists');
+    }
+  }
+
+  // report-level visual_diff_artifacts file existence
+  if (projectPath && visualDiffs && visualDiffs.length > 0) {
+    let allExist = true;
+    for (const vd of visualDiffs) {
+      for (const field of ['expected_path', 'actual_path', 'diff_path']) {
+        const p = vd[field];
+        if (p) {
+          const fullPath = join(projectPath, p);
+          if (!existsSync(fullPath)) {
+            allExist = false;
+            const detail = `visual_diff_artifacts ${field} missing: ${p}`;
+            if (isNewTask) violations.push({ check: 'evidence_visual_diff_file_missing', severity: 'BLOCK', detail });
+            else warnings.push(detail);
+          }
+        }
+      }
+    }
+    if (allExist) checksPass.push('evidence_visual_diff_files_exist');
+  }
+
+  return { violations, warnings, checksPass };
+}
+
 export function check(taskDir, gate, { warnings: readWarnings }) {
   const violations = [];
   const warnings = [...readWarnings];
@@ -324,6 +863,225 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
 
           if (hasSkipPlaywright) {
             checksPass.push('reviewer_skip_playwright_decision_exists');
+          }
+
+          // --- Check 6: E2E report content validation ---
+          if (hasE2EReport && !hasSkipPlaywright) {
+            const e2eReportPath = join(artifactsDir, 'e2e-visual-test-report.yaml');
+            let reportText;
+            try {
+              reportText = readFileSync(e2eReportPath, 'utf8');
+            } catch {
+              violations.push({ check: 'e2e_report_parseable', severity: 'BLOCK', detail: 'e2e-visual-test-report.yaml could not be read' });
+              reportText = null;
+            }
+
+            if (reportText) {
+              // Reporter check
+              const reporterMatch = reportText.match(/reporter:\s*["']?([^"'\n#]+)/);
+              const reporter = reporterMatch ? reporterMatch[1].trim() : '';
+              if (reporter !== 'playwright-e2e-testing') {
+                const detail = `reporter must be "playwright-e2e-testing", got: "${reporter || 'missing'}"`;
+                if (isNewTask) {
+                  violations.push({ check: 'e2e_reporter', severity: 'BLOCK', detail });
+                } else {
+                  warnings.push(detail);
+                }
+              } else {
+                checksPass.push('e2e_reporter_valid');
+              }
+
+              // Completion status
+              const csMatch = reportText.match(/completion_status:\s*["']?([^"'\n#]+)/);
+              const cs = csMatch ? csMatch[1].trim() : '';
+              if (cs !== 'COMPLETE') {
+                const detail = `completion_status must be "COMPLETE", got: "${cs || 'missing'}"`;
+                if (isNewTask) {
+                  violations.push({ check: 'e2e_completion_status', severity: 'BLOCK', detail });
+                } else {
+                  warnings.push(detail);
+                }
+              } else {
+                checksPass.push('e2e_completion_status_valid');
+              }
+
+              // Merge recommendation
+              const mrMatch = reportText.match(/merge_recommendation:\s*["']?([^"'\n#]+)/);
+              const mr = mrMatch ? mrMatch[1].trim() : '';
+              if (mr !== 'ALLOW') {
+                const detail = `merge_recommendation must be "ALLOW", got: "${mr || 'missing'}"`;
+                if (isNewTask) {
+                  violations.push({ check: 'e2e_merge_recommendation', severity: 'BLOCK', detail });
+                } else {
+                  warnings.push(detail);
+                }
+              } else {
+                checksPass.push('e2e_merge_recommendation_valid');
+              }
+
+              // DoD FAIL scan
+              const dodMap = parseDoDMap(reportText);
+              const failKeys = Object.entries(dodMap)
+                .filter(([, v]) => v.toUpperCase() === 'FAIL')
+                .map(([k]) => k);
+              if (failKeys.length > 0) {
+                const detail = `definition_of_done has FAIL values: ${failKeys.join(', ')}`;
+                if (isNewTask) {
+                  violations.push({ check: 'e2e_dod_fail', severity: 'BLOCK', detail });
+                } else {
+                  warnings.push(detail);
+                }
+              } else {
+                checksPass.push('e2e_dod_no_fail');
+              }
+
+              // expected_visual_targets non-empty
+              const targets = parseExpectedVisualTargets(reportText);
+              if (!targets || targets.length === 0) {
+                const detail = 'expected_visual_targets is empty or missing';
+                if (isNewTask) {
+                  violations.push({ check: 'e2e_expected_targets_empty', severity: 'BLOCK', detail });
+                } else {
+                  warnings.push(detail);
+                }
+              } else {
+                checksPass.push('e2e_expected_targets_present');
+              }
+
+              // untested_targets empty
+              const untestedBlock = extractYamlBlock(reportText, 'untested_targets');
+              const untestedHasItems = untestedBlock && untestedBlock.some(l => l.trim().startsWith('- '));
+              if (untestedHasItems) {
+                const detail = 'untested_targets is not empty';
+                if (isNewTask) {
+                  violations.push({ check: 'e2e_untested_targets', severity: 'BLOCK', detail });
+                } else {
+                  warnings.push(detail);
+                }
+              } else {
+                checksPass.push('e2e_untested_targets_empty');
+              }
+
+              // coverage_summary.missing_count === 0
+              const mcMatch = reportText.match(/missing_count:\s*(\d+)/);
+              const mc = mcMatch ? parseInt(mcMatch[1], 10) : null;
+              if (mc !== null && mc !== 0) {
+                const detail = `coverage_summary.missing_count must be 0, got: ${mc}`;
+                if (isNewTask) {
+                  violations.push({ check: 'e2e_missing_count', severity: 'BLOCK', detail });
+                } else {
+                  warnings.push(detail);
+                }
+              } else if (mc === 0) {
+                checksPass.push('e2e_missing_count_zero');
+              }
+
+              // coverage_trace no NOT_COVERED
+              const trace = parseCoverageTrace(reportText);
+              if (trace) {
+                const notCovered = trace.filter(t => t.result === 'NOT_COVERED');
+                if (notCovered.length > 0) {
+                  const detail = `coverage_trace has NOT_COVERED entries: ${notCovered.map(t => t.target_id).join(', ')}`;
+                  if (isNewTask) {
+                    violations.push({ check: 'e2e_coverage_not_covered', severity: 'BLOCK', detail });
+                  } else {
+                    warnings.push(detail);
+                  }
+                } else {
+                  checksPass.push('e2e_coverage_all_covered');
+                }
+              }
+            }
+          }
+
+          // --- Check 7: Scope flag leak ---
+          {
+            const cpFiles = artifactsExist ? readdirSync(artifactsDir).filter(f => /^change-package-.*\.yaml$/.test(f)) : [];
+            if (cpFiles.length > 0) {
+              const latestCP = cpFiles.sort().pop();
+              const cpPath = join(artifactsDir, latestCP);
+              try {
+                const cpText = readFileSync(cpPath, 'utf8');
+
+                const uiPatterns = [/\.tsx?$/, /\.css$/, /\.scss$/, /\.vue$/, /tailwind/, /public\/assets/, /\/components\//, /\/pages\//];
+                const hasUIFiles = uiPatterns.some(p => p.test(cpText));
+
+                const sfMatch = cpText.match(/ui:\s*(true|false)/);
+                const interactionMatch = cpText.match(/interaction:\s*(true|false)/);
+                const uiFlag = sfMatch ? sfMatch[1] === 'true' : null;
+                const interactionFlag = interactionMatch ? interactionMatch[1] === 'true' : null;
+
+                if (hasUIFiles && uiFlag === false && interactionFlag === false) {
+                  const detail = 'UI files detected in change-package but scope_flags.ui=false and interaction=false';
+                  if (isNewTask) {
+                    violations.push({ check: 'scope_flag_leak', severity: 'BLOCK', detail });
+                  } else {
+                    warnings.push(detail);
+                  }
+                } else {
+                  checksPass.push('scope_flags_consistent');
+                }
+              } catch {
+                // Non-fatal
+              }
+            }
+          }
+
+          // --- Check 8: Scope reconciliation ---
+          if (!hasSkipPlaywright) {
+            const scopePath = join(artifactsDir, 'visual-test-scope.yaml');
+            let scopeText = null;
+            if (!existsSync(scopePath)) {
+              const detail = 'rule_ui matched but artifacts/visual-test-scope.yaml is missing';
+              if (isNewTask) {
+                violations.push({ check: 'rule_ui_visual_scope_missing', severity: 'BLOCK', detail });
+              } else {
+                warnings.push(detail);
+              }
+            } else {
+              scopeText = readFileSync(scopePath, 'utf8');
+              const surfaces = parseChangedSurfaces(scopeText);
+              if (surfaces === null) {
+                const detail = 'visual-test-scope.yaml could not be parsed';
+                if (isNewTask) {
+                  violations.push({ check: 'scope_parseable', severity: 'BLOCK', detail });
+                } else {
+                  warnings.push(detail);
+                }
+              } else if (surfaces.length === 0) {
+                const detail = 'rule_ui matched but changed_surfaces is empty';
+                if (isNewTask) {
+                  violations.push({ check: 'scope_surfaces_empty', severity: 'BLOCK', detail });
+                } else {
+                  warnings.push(detail);
+                }
+              } else {
+                checksPass.push('scope_present');
+              }
+            }
+
+            if (hasE2EReport && scopeText) {
+              const reportText = readFileSync(join(artifactsDir, 'e2e-visual-test-report.yaml'), 'utf8');
+              const dodResult = validateDoDCompleteness(reportText, isNewTask);
+              violations.push(...dodResult.violations);
+              warnings.push(...dodResult.warnings);
+              checksPass.push(...dodResult.checksPass);
+
+              const r = reconcileScopeWithReport(scopeText, reportText, isNewTask);
+              violations.push(...r.violations);
+              warnings.push(...r.warnings);
+              checksPass.push(...r.checksPass);
+            }
+
+            // --- Check 9: Evidence Gate ---
+            if (hasE2EReport) {
+              const projectPath = taskYaml.project_path || null;
+              const reportText = readFileSync(join(artifactsDir, 'e2e-visual-test-report.yaml'), 'utf8');
+              const ev = validateEvidence(reportText, projectPath, isNewTask);
+              violations.push(...ev.violations);
+              warnings.push(...ev.warnings);
+              checksPass.push(...ev.checksPass);
+            }
           }
         }
       } catch {
