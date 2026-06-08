@@ -1,6 +1,30 @@
 # Spawn via Handoff — Task 子 Agent 调度协议
 
-> 适用范围：orchestrator 通过 Cowork Agent tool 调度 DevFlow 专业 sub-skill 时。
+> 适用范围：orchestrator 通过 Cowork Agent tool 或 Codex sub-agent tooling 调度 DevFlow 专业 sub-skill 时。
+
+---
+
+## 0. Runtime provenance
+
+每次 dispatch 都应在 handoff packet、permit、`skill_dispatch_authorized` / `skill_dispatched` event payload 中尽量记录以下字段：
+
+```yaml
+host_platform: cowork | codex
+dispatch_backend: cowork_skill | codex_multi_agent | manual
+dispatch_mode: true_subagent | role_emulation | user_explicit_skill_invocation
+degraded_independence: true | false
+```
+
+Codex MVP 默认：
+
+```yaml
+host_platform: codex
+dispatch_backend: codex_multi_agent
+dispatch_mode: true_subagent
+degraded_independence: false
+```
+
+`role_emulation` 或 `degraded_independence: true` 表示 reviewer 独立性降级；Gate 3 必须展示 WARN，不能把它当作完整独立审查。
 
 ---
 
@@ -51,6 +75,19 @@ input_artifacts:
 
 ---
 
+## 2.5 Codex spawn 约定
+
+Codex 中，`@dev-orchestrator` 是用户显式请求 DevFlow 编排的信号。orchestrator 可以使用 Codex sub-agent tooling 调度专业 skill，但 prompt 仍必须包含：
+
+1. `task_id: {id}`
+2. `handoff_id: {id}`
+3. `@skill-name` 或 `skill_name: skill-name`
+4. runtime provenance（见 §0）
+
+Codex sub-agent prompt 应明确要求 sub-agent 读取对应 `SKILL.md` 和 handoff packet，并只产出该 skill 负责的 artifact。Reviewer dispatch 必须是真 sub-agent；若只能由 parent role-emulate，则写 `dispatch_mode: role_emulation` + `degraded_independence: true`。
+
+---
+
 ## 3. Resolved skill name 解析优先级
 
 Enforcer 按以下优先级从 prompt 中解析实际 skill（高到低）：
@@ -78,7 +115,7 @@ Enforcer 按以下优先级从 prompt 中解析实际 skill（高到低）：
 | Permit 类型 | 写入时机 | 含义 | 文件名模式 |
 |-------------|---------|------|-----------|
 | `dispatch_authorized` | **PreToolUse**（Task spawn 前） | 授权通过，允许 spawn | `dispatch_authorized-{skill}-{auth_id}.json` |
-| `dispatch_skill` | **PostToolUse** 或 `finalize_dispatches` | spawn 实际完成，证据 finalized | `dispatch_skill-{skill}-{handoff_id}-{sha}.json` |
+| `dispatch_skill` | **PostToolUse**、`finalize_dispatches` 或 Codex explicit `dispatch_skill` gate | spawn 实际完成，证据 finalized | `dispatch_skill-{skill}-{handoff_id}-{sha}.json` |
 
 **关键**：PreToolUse 只写 `dispatch_authorized`，不写 `dispatch_skill`。`dispatch_skill` 必须在 Agent tool 返回后（PostToolUse）或通过 `finalize_dispatches --force` 补齐。
 

@@ -24,6 +24,7 @@ import {
 import { fingerprint, tryLock, cleanStaleLocks } from './lib/dedup.mjs';
 import {
   parseTaskSpawn,
+  parseRuntimeProvenance,
   resolveSkillFromPrompt,
   resolveTaskDir,
   resolveLegacyTaskDir,
@@ -185,6 +186,17 @@ function runGateCheck(action, taskDir, extraArgs) {
   }
 }
 
+function runtimeGateArgs(runtime = {}) {
+  const args = [];
+  if (runtime.host_platform) args.push('--host-platform', runtime.host_platform);
+  if (runtime.dispatch_backend) args.push('--dispatch-backend', runtime.dispatch_backend);
+  if (runtime.dispatch_mode) args.push('--dispatch-mode', runtime.dispatch_mode);
+  if (runtime.degraded_independence !== undefined) {
+    args.push('--degraded-independence', String(runtime.degraded_independence));
+  }
+  return args;
+}
+
 // ── Extract appended lines from events.jsonl content ──────────────────────────
 
 /**
@@ -232,6 +244,7 @@ function handlePreTask(rawToolInput) {
   const prompt = rawToolInput.prompt || rawToolInput.description || '';
   const toolSkill = rawToolInput.subagent_type || rawToolInput.subagentType || '';
   const parsed = parseTaskSpawn(prompt, toolSkill);
+  const runtime = parseRuntimeProvenance(prompt);
   const { taskId, handoffId, skill } = parsed;
 
   // Not a DevFlow sub-skill dispatch — allow silently
@@ -295,6 +308,7 @@ function handlePreTask(rawToolInput) {
     handoffId,
     skill,
     toolUseId,
+    runtime,
   });
 
   info(
@@ -309,6 +323,7 @@ function handlePostTask(rawToolInput) {
   const prompt = rawToolInput.prompt || rawToolInput.description || '';
   const toolSkill = rawToolInput.subagent_type || rawToolInput.subagentType || '';
   const parsed = parseTaskSpawn(prompt, toolSkill);
+  const runtime = parseRuntimeProvenance(prompt);
   const { taskId, handoffId, skill } = parsed;
 
   // Not a DevFlow sub-skill dispatch — allow silently
@@ -332,6 +347,7 @@ function handlePostTask(rawToolInput) {
       handoffId,
       skill,
       packetContent: prompt,
+      runtime,
     });
     if (finalized) {
       info(`Task spawn finalized [Fix 3 Stage 3]: task_id=${taskId} handoff_id=${handoffId} skill=${skill}`);
@@ -344,6 +360,7 @@ function handlePostTask(rawToolInput) {
       taskId,
       handoffId,
       skill,
+      runtime,
     });
     info(`Task spawn failed/cancelled [Fix 3 Stage 3]: task_id=${taskId} handoff_id=${handoffId} skill=${skill} reason=${cancelled ? 'cancelled' : 'error'}`);
   }
@@ -426,7 +443,8 @@ function handlePreWrite(rawToolInput) {
       const skill = parsed.skill_name;
       const phase = parsed.phase || parsed.stage || 'unknown';
       if (skill) {
-        return output(runGateCheck('dispatch_skill', task.dir, ['--skill', skill, '--phase', phase]));
+        const runtime = parseRuntimeProvenance(incoming);
+        return output(runGateCheck('dispatch_skill', task.dir, ['--skill', skill, '--phase', phase, ...runtimeGateArgs(runtime)]));
       }
     }
     // Cannot parse handoff content → allow with warning

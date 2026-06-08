@@ -5,7 +5,7 @@ description: |
   外层骨架：A-Define → B-Roadmap → C-Plan → D-Execute+Verify+Gate → F-Closeout。
   阶段是骨架，专业 skills 是阶段内部的能力模块。
   orchestrator 是路由者和 state 管理者，不是执行者——专业产出必须 spawn sub-agent。
-  触发条件：仅当用户通过 @dev-orchestrator 显式调用时触发。
+  触发条件：仅当用户通过 @dev-orchestrator 显式调用时触发；在 Codex 中这也表示用户允许 DevFlow 使用 Codex sub-agents。
 triggers:
   - dev-orchestrator
   - 开发编排
@@ -18,9 +18,11 @@ triggers:
 
 ## 前置认知
 
-> 平台文档：`./cowork-as-host-platform.md` + `./feishu-miaoda-as-host-platform.md`（每次任务启动时 Read）
+> 平台文档：`./cowork-as-host-platform.md` + `./codex-as-host-platform.md` + `./feishu-miaoda-as-host-platform.md`（每次任务启动时 Read）
 
-你运行在 **Cowork 宿主平台**上。先探索平台已有能力，再决定哪些需要写代码。能用平台的不自建。
+你运行在宿主平台上（Cowork 或 Codex）。先识别当前 host，再探索平台已有能力，最后决定哪些需要写代码。能用平台的不自建。
+
+Codex 语义：只有用户显式调用 `@dev-orchestrator` 时，DevFlow 才获得使用 Codex sub-agents 执行 phase dispatch 的许可；普通 Codex 开发请求不自动进入 DevFlow。
 
 ---
 
@@ -66,7 +68,7 @@ triggers:
 
 铁律 #13 的运行时展开。每次 spawn sub-agent 后，基于 **artifact 存在性**判定分支（不依赖 sub-agent 自报）：
 
-> **Cowork Agent dispatch 约定**：`subagent_type` 必须为 `"claude"`（运行时类型）；DevFlow skill 名通过 prompt 中 `@skill-name` 显式声明；prompt 须含 `task_id` + `handoff_id`。Cowork 不触发 PostToolUse → 由 `finalize_dispatches --force` 在下一 gate action 前自动补齐 `dispatch_skill` permit + `skill_dispatched` event。完整规则见 `./protocols/spawn-via-handoff.md`。
+> **Dispatch runtime 约定**：DevFlow skill 名通过 prompt 中 `@skill-name` 显式声明；prompt 须含 `task_id` + `handoff_id`。Cowork 使用 Agent tool + `subagent_type: "claude"`，且可能需要 `finalize_dispatches --force` 补齐 permit。Codex 使用 Codex sub-agent tooling，并必须记录 `host_platform=codex`、`dispatch_backend=codex_multi_agent`、`dispatch_mode=true_subagent`、`degraded_independence=false`。完整规则见 `./protocols/spawn-via-handoff.md`。
 
 ### Branch 1: NORMAL
 
@@ -362,8 +364,8 @@ ANY item = NO → 立即补写，不继续到下一阶段。Phase Exit Gate 是�
 
 **关键约束**：
 - Phase A 不 spawn sub-agent
-- **Step A.0**：确定 devflow_root / project_path（immutable for task lifetime）。is_devflow_root() 要求 skills-source/ AND CLAUDE.md 前 5 行含 "# DevFlow"。外部 repo → 读取/创建 `devflow-config.yaml`
-- **Step A.2**：并行 Read 所有 sub-agent SKILL.md + `./cowork-as-host-platform.md` + `./feishu-miaoda-as-host-platform.md` + `./event-protocol.md`（≥11 项全部 ✅ 才继续）
+- **Step A.0**：确定 devflow_root / project_path / host_platform（immutable for task lifetime）。is_devflow_root() 要求 skills-source/ AND (`CLAUDE.md` OR `AGENTS.md`) 前 20 行含 "DevFlow"。外部 repo → 读取/创建 `devflow-config.yaml`。Codex MVP 任务必须写 `host_platform: codex`
+- **Step A.2**：并行 Read 所有 sub-agent SKILL.md（含 `playwright-e2e-testing`）+ `./cowork-as-host-platform.md` + `./codex-as-host-platform.md` + `./feishu-miaoda-as-host-platform.md` + `./event-protocol.md`（≥13 项全部 ✅ 才继续）
 - **Step A.4**：判断 task_type（bugfix / hotfix / feature_iteration / new_feature）
 
 **Phase A Exit**：task-brief.md 写入 + task.yaml 初始化 + events.jsonl 有 task_initialized + phase_completed
@@ -494,6 +496,6 @@ ACCEPT 后如用户请求额外工作 → 铁律 #15 生效 → 执行 `./contra
 | `./protocols/write-through-actions.md` | Template A/B/C/D 执行时（含 user_feedback schema） |
 | `./protocols/pre-gate-self-check.md` | 每个 Gate 前（PG1-1~6 / PG2-1~8 / PG3-1~13 检查清单） |
 | `./protocols/state-conflict-resolution.md` | state_conflict_detected 时 |
-| `./protocols/spawn-via-handoff.md` | spawn sub-agent 前（Cowork Agent tool dispatch 约定 + finalize fallback） |
+| `./protocols/spawn-via-handoff.md` | spawn sub-agent 前（Cowork / Codex dispatch runtime 约定 + finalize fallback） |
 | `./protocols/bootstrap-and-transition.md` | bootstrap / transition 命令使用时（含 phase alias 规则与 enforcer 硬化） |
 | `./event-protocol.md` | Phase Exit 验证 + 写 events.jsonl 时（Canonical Event Type Enum） |

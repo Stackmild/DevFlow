@@ -71,6 +71,24 @@ function eventAlreadyLogged(events, eventType, payloadMatcher) {
   return false;
 }
 
+function runtimeFromPermit(task, permit = {}) {
+  const runtime = {};
+  for (const field of ['host_platform', 'dispatch_backend', 'dispatch_mode', 'degraded_independence']) {
+    if (permit[field] !== undefined && permit[field] !== null && permit[field] !== '') {
+      runtime[field] = permit[field];
+    }
+  }
+  if (!runtime.host_platform && task?.host_platform) {
+    runtime.host_platform = String(task.host_platform).trim();
+  }
+  if (runtime.host_platform === 'codex') {
+    if (!runtime.dispatch_backend) runtime.dispatch_backend = 'codex_multi_agent';
+    if (!runtime.dispatch_mode) runtime.dispatch_mode = 'true_subagent';
+    if (runtime.degraded_independence === undefined) runtime.degraded_independence = false;
+  }
+  return runtime;
+}
+
 /**
  * Scan and finalize pending dispatch_authorized permits.
  *
@@ -133,6 +151,7 @@ export function finalizeDispatches(taskDir, { timeoutMs = DEFAULT_TIMEOUT_MS, fo
     const parsed = parseAuthId(authId);
     const handoffId = permit.handoff_id || parsed.handoffId || null;
     const sha8 = permit.handoff_sha || parsed.sha8 || 'fallback';
+    const runtimePayload = runtimeFromPermit(task, permit);
 
     // Check if already finalized (by permit file existence)
     if (handoffId && hasFinalizedPermit(permitsDir, skill, handoffId)) {
@@ -169,9 +188,11 @@ export function finalizeDispatches(taskDir, { timeoutMs = DEFAULT_TIMEOUT_MS, fo
     // Write finalized permit (copy content, add finalized_at)
     const finalPermit = {
       ...permit,
+      action: 'dispatch_skill',
       status: 'dispatched',
       finalized_at: new Date().toISOString(),
       finalized_by: 'finalize_dispatches_fallback',
+      ...runtimePayload,
     };
 
     try {
@@ -192,6 +213,7 @@ export function finalizeDispatches(taskDir, { timeoutMs = DEFAULT_TIMEOUT_MS, fo
         tool_use_id: permit.tool_use_id || null,
         auth_id: authIdInEvent,
         finalized_by: 'finalize_dispatches_fallback',
+        ...runtimePayload,
       },
       timestamp: new Date().toISOString(),
       source: 'devflow-gate',

@@ -41,6 +41,11 @@ exit_checks:
   - check: "{完成条件}"
     verification: "{怎么验证}"
 # --- 可选字段 ---
+runtime_context:                    # Codex / Cowork dispatch provenance
+  host_platform: "cowork"           # cowork | codex
+  dispatch_backend: "cowork_skill"  # cowork_skill | codex_multi_agent | manual
+  dispatch_mode: "true_subagent"    # true_subagent | role_emulation | user_explicit_skill_invocation
+  degraded_independence: false      # true 时 Gate 3 必须 WARN
 host_platform_context:              # 外部 repo 模式时必填；内部项目省略
   host_platform: "{feishu_miaoda | other}"
   deployment_model: "{cloud_config | local_code_sync}"

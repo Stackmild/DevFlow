@@ -28,9 +28,9 @@ triggers:
 
 本 Skill 负责**把设计方案变成可运行的代码**——但只做平台能力覆盖不了的部分。
 
-> 完整理解文档：`../dev-orchestrator/cowork-as-host-platform.md`
+> 完整理解文档：`../dev-orchestrator/cowork-as-host-platform.md` + `../dev-orchestrator/codex-as-host-platform.md`
 
-**你运行在 Cowork 宿主平台上。** 平台已具备大模型能力、搜索/抓取、文件操作、skill 编排、自动化调度等。**你不需要为平台已有的能力写代码。** Orchestrator 在调用你之前，已经做了能力边界探索，并会告诉你"平台已覆盖什么 / 你需要补什么"。
+**你运行在宿主平台上（Cowork 或 Codex）。** 平台已具备大模型能力、搜索/抓取、文件操作、skill 编排、自动化调度等。**你不需要为平台已有的能力写代码。** Orchestrator 在调用你之前，已经做了能力边界探索，并会告诉你"平台已覆盖什么 / 你需要补什么"。
 
 核心工作流：
 1. **读取 orchestrator 的平台能力判断** → 了解哪些已由平台覆盖、哪些需要你写代码、哪些是 handoff

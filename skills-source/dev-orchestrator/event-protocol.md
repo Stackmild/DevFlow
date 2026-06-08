@@ -119,9 +119,9 @@
 
 | event_type | required payload fields | 说明 |
 |------------|------------------------|------|
-| `skill_dispatched` | skill_name, handoff_id, stage | sub-agent 被 spawn（关联 handoff-packet） |
+| `skill_dispatched` | skill_name, handoff_id, stage | sub-agent 被 spawn（关联 handoff-packet）；可附加 `host_platform`, `dispatch_backend`, `dispatch_mode`, `degraded_independence` |
 | `skill_completed` | skill, artifact, phase | sub-agent 执行完成 |
-| `skill_dispatch_authorized` | skill_name, handoff_id, auth_id | PreToolUse Task hook 通过授权；**不代表 sub-agent 已成功执行** |
+| `skill_dispatch_authorized` | skill_name, handoff_id, auth_id | PreToolUse Task hook 通过授权；**不代表 sub-agent 已成功执行**；可附加 dispatch runtime provenance |
 | `skill_dispatch_failed` | skill_name, handoff_id, auth_id, reason | PostToolUse Task 失败 / 取消；不触发 `skill_dispatched` |
 | `phase_completed` | phase | 一个 phase 整体完成 |
 | `phase_skipped` | skill_name, skip_reason | 设计 phase 被跳过 |

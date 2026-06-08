@@ -12,8 +12,9 @@ import { existsSync, mkdirSync, writeFileSync, readdirSync, statSync } from 'fs'
 import { join, resolve } from 'path';
 
 const PROTOCOL_VERSION = '2';
+const HOST_PLATFORMS = ['cowork', 'codex'];
 
-export function check(taskDir, { taskId, description, projectPath, devflowRoot, moduleSlug, authoritativeSpec, expectedArtifactGlobs }) {
+export function check(taskDir, { taskId, description, projectPath, devflowRoot, hostPlatform, moduleSlug, authoritativeSpec, expectedArtifactGlobs }) {
   const violations = [];
   const warnings = [];
 
@@ -32,6 +33,11 @@ export function check(taskDir, { taskId, description, projectPath, devflowRoot, 
   if (!devflowRoot) {
     violations.push({ check: 'required_devflow_root', severity: 'BLOCK', detail: 'devflow_root is required' });
   }
+  if (!hostPlatform) {
+    violations.push({ check: 'required_host_platform', severity: 'BLOCK', detail: 'host_platform is required' });
+  } else if (!HOST_PLATFORMS.includes(hostPlatform)) {
+    violations.push({ check: 'valid_host_platform', severity: 'BLOCK', detail: `host_platform must be one of ${HOST_PLATFORMS.join(', ')}` });
+  }
   if (!moduleSlug) {
     warnings.push('module_slug not provided — verify_state will not be able to match business artifacts by slug');
   }
@@ -44,6 +50,7 @@ export function check(taskDir, { taskId, description, projectPath, devflowRoot, 
     `project_path: "${projectPath}"`,
     `devflow_root: "${devflowRoot}"`,
     `protocol_version: "${PROTOCOL_VERSION}"`,
+    `host_platform: "${hostPlatform}"`,
     `status: "initialized"`,
     `current_phase: "phase_a"`,
     `started_at: "${startedAt}"`,
@@ -65,6 +72,7 @@ export function check(taskDir, { taskId, description, projectPath, devflowRoot, 
     event_type: 'task_initialized',
     payload: {
       protocol_version: PROTOCOL_VERSION,
+      host_platform: hostPlatform,
       project_path: projectPath,
       devflow_root: devflowRoot,
       module_slug: moduleSlug || null,
@@ -96,6 +104,7 @@ export function check(taskDir, { taskId, description, projectPath, devflowRoot, 
         task_id: taskId,
         bootstrapped_at: startedAt,
         protocol_version: PROTOCOL_VERSION,
+        host_platform: hostPlatform,
       });
       writeFileSync(join(taskDir, '.permits', `bootstrap-${taskId}.permit`), permitContent, 'utf8');
     } catch (err) {
@@ -113,7 +122,7 @@ export function check(taskDir, { taskId, description, projectPath, devflowRoot, 
   return {
     allowed,
     action: 'bootstrap',
-    params: { task_id: taskId, task_dir: taskDir },
+    params: { task_id: taskId, task_dir: taskDir, host_platform: hostPlatform },
     ...(allowed
       ? { checks_passed: ['unique_task_id', 'required_fields', 'directory_created', 'task_yaml_written', 'events_written', 'permit_written'] }
       : { reason: violations.map(v => v.detail).join('; '), violations }),

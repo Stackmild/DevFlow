@@ -4,7 +4,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { findEvents, decisionExists, appendEvents } from '../state-reader.mjs';
+import { findEvents, decisionExists, appendEvents, readTaskYaml } from '../state-reader.mjs';
 
 /**
  * Read the latest change-package YAML from artifacts/ and check if scope_flags.ui = true.
@@ -123,11 +123,59 @@ const PREREQS = {
 };
 
 const KNOWN_SKILLS = Object.keys(PREREQS);
+const HOST_PLATFORMS = ['cowork', 'codex'];
+const DISPATCH_BACKENDS = ['cowork_skill', 'codex_multi_agent', 'manual'];
+const DISPATCH_MODES = ['true_subagent', 'role_emulation', 'user_explicit_skill_invocation'];
 
-export function check(taskDir, skill, phase, { events, warnings: readWarnings }) {
+function normalizeRuntime(runtime = {}) {
+  const result = {};
+  if (runtime.host_platform) result.host_platform = runtime.host_platform;
+  if (runtime.dispatch_backend) result.dispatch_backend = runtime.dispatch_backend;
+  if (runtime.dispatch_mode) result.dispatch_mode = runtime.dispatch_mode;
+  if (runtime.degraded_independence !== undefined && runtime.degraded_independence !== null && runtime.degraded_independence !== '') {
+    result.degraded_independence = String(runtime.degraded_independence).toLowerCase() === 'true';
+  }
+  return result;
+}
+
+function validateRuntime(runtime) {
+  const warnings = [];
+  if (runtime.host_platform && !HOST_PLATFORMS.includes(runtime.host_platform)) {
+    warnings.push(`Unknown host_platform "${runtime.host_platform}" — expected one of ${HOST_PLATFORMS.join(', ')}`);
+  }
+  if (runtime.dispatch_backend && !DISPATCH_BACKENDS.includes(runtime.dispatch_backend)) {
+    warnings.push(`Unknown dispatch_backend "${runtime.dispatch_backend}" — expected one of ${DISPATCH_BACKENDS.join(', ')}`);
+  }
+  if (runtime.dispatch_mode && !DISPATCH_MODES.includes(runtime.dispatch_mode)) {
+    warnings.push(`Unknown dispatch_mode "${runtime.dispatch_mode}" — expected one of ${DISPATCH_MODES.join(', ')}`);
+  }
+  if (runtime.host_platform === 'codex') {
+    if (!runtime.dispatch_backend) runtime.dispatch_backend = 'codex_multi_agent';
+    if (!runtime.dispatch_mode) runtime.dispatch_mode = 'true_subagent';
+    if (runtime.degraded_independence === undefined) runtime.degraded_independence = false;
+  }
+  if (runtime.host_platform === 'codex' && runtime.dispatch_backend !== 'codex_multi_agent') {
+    warnings.push('Codex dispatch should use dispatch_backend=codex_multi_agent for MVP reviewer independence');
+  }
+  if (runtime.host_platform === 'codex' && runtime.dispatch_mode !== 'true_subagent') {
+    warnings.push('Codex dispatch is not true_subagent — Gate 3 must treat reviewer independence as degraded');
+  }
+  if (runtime.degraded_independence === true) {
+    warnings.push('degraded_independence=true — Gate 3 must surface this as review independence degradation');
+  }
+  return warnings;
+}
+
+export function check(taskDir, skill, phase, { events, warnings: readWarnings }, runtimeInput = {}) {
   const violations = [];
   const warnings = [...readWarnings];
   const checksPass = [];
+  const runtime = normalizeRuntime(runtimeInput);
+  const taskYaml = readTaskYaml(taskDir) || {};
+  if (!runtime.host_platform && taskYaml.host_platform) {
+    runtime.host_platform = String(taskYaml.host_platform).trim();
+  }
+  warnings.push(...validateRuntime(runtime));
 
   // --- Check 0: Known skill ---
   // Unknown skills pass through with a warning — new skills added to DevFlow don't break the gate
@@ -136,7 +184,7 @@ export function check(taskDir, skill, phase, { events, warnings: readWarnings })
     return {
       allowed: true,
       action: 'dispatch_skill',
-      params: { skill, phase },
+      params: { skill, phase, ...runtime },
       checks_passed: ['unknown_skill_passthrough'],
       warnings,
     };
@@ -272,7 +320,7 @@ export function check(taskDir, skill, phase, { events, warnings: readWarnings })
     try {
       appendEvents(taskDir, [{
         event_type: 'skill_dispatched',
-        payload: { skill, phase },
+        payload: { skill, phase, ...runtime },
         timestamp: new Date().toISOString(),
         source: 'devflow-gate-dispatch_skill',
       }]);
@@ -284,7 +332,7 @@ export function check(taskDir, skill, phase, { events, warnings: readWarnings })
   return {
     allowed,
     action: 'dispatch_skill',
-    params: { skill, phase },
+    params: { skill, phase, ...runtime },
     ...(allowed
       ? { checks_passed: checksPass }
       : { reason: violations.map(v => v.detail).join('; '), violations }),

@@ -1,10 +1,10 @@
 # DevFlow — 多 Agent 开发工作流系统
 
-DevFlow 是运行在 Cowork 宿主平台上的阶段驱动多 Agent 半自动开发工作流系统。它按固定骨架推进：定义 -> 产品分析 -> 设计 -> 执行 + 审查 -> 收尾。Orchestrator 负责调度专业 sub-skill，人类只在 Gate 1/2/3 做关键决策。
+DevFlow 是以 Cowork 为主宿主、并提供 Codex MVP 适配的阶段驱动多 Agent 半自动开发工作流系统。它按固定骨架推进：定义 -> 产品分析 -> 设计 -> 执行 + 审查 -> 收尾。Orchestrator 负责调度专业 sub-skill，人类只在 Gate 1/2/3 做关键决策。
 
 v6.1 重点是状态机硬化：bootstrap 强制初始化、Task spawn 必经 handoff、phase 切换原子写入、Gate permit 反压、`verify_state` D1-D7 对账、PostToolUse fallback、增量审计。
 
-## 快速开始
+## 快速开始（Cowork）
 
 1. 新建空文件夹，用 Cowork 打开。
 2. 在 Cowork 发送：
@@ -22,9 +22,24 @@ v6.1 重点是状态机硬化：bootstrap 强制初始化、Task spawn 必经 ha
 
 没有 hook，DevFlow 仍能运行 skill，但 v6.1 的强制门禁不会完整生效。
 
+## 快速开始（Codex MVP）
+
+1. 克隆或打开 DevFlow repo。
+2. 同步核心 DevFlow skills 到 Codex：
+
+   ```bash
+   bash scripts/sync-skills-codex.sh --dry-run
+   bash scripts/sync-skills-codex.sh
+   ```
+
+3. 重启 Codex，让新 skills 生效。
+4. 在 Codex 中输入 `@dev-orchestrator {任务描述}` 启动 DevFlow。
+
+Codex MVP 默认只同步核心 workflow skills，不同步 `devflow-self-improve`，因为该旁路 skill 当前依赖 Cowork session JSONL。
+
 ## 外部 repo 模式
 
-在其他项目目录中打开 Cowork 并调用 `@dev-orchestrator`。Orchestrator 会识别当前不是 DevFlow 根目录，询问 DevFlow 路径，并创建 `devflow-config.yaml`。任务状态保存在 DevFlow 的 `orchestrator-state/`，代码修改发生在外部项目目录。
+在其他项目目录中打开 Cowork / Codex 并调用 `@dev-orchestrator`。Orchestrator 会识别当前不是 DevFlow 根目录，询问 DevFlow 路径，并创建 `devflow-config.yaml`。任务状态保存在 DevFlow 的 `orchestrator-state/`，代码修改发生在外部项目目录。
 
 新任务会通过 `bootstrap` 写入：
 
@@ -32,6 +47,7 @@ v6.1 重点是状态机硬化：bootstrap 强制初始化、Task spawn 必经 ha
 - `project_path`
 - `devflow_root`
 - `protocol_version: 2`
+- `host_platform`
 - `current_phase: phase_a`
 - `started_at`
 - `module_slug`
@@ -134,6 +150,17 @@ node scripts/devflow-gate.mjs verify_state \
 
 Cowork Agent tool 当前不触发 PostToolUse。DevFlow 因此在 gate action 前强制运行 `finalize_dispatches --force` 逻辑，补齐 `skill_dispatched` event 和 finalized `dispatch_skill-*` permit。
 
+Codex 中，`@dev-orchestrator` 是用户明确授权 DevFlow 使用 Codex sub-agents 的信号。Codex dispatch 必须记录 runtime provenance：
+
+```yaml
+host_platform: codex
+dispatch_backend: codex_multi_agent
+dispatch_mode: true_subagent
+degraded_independence: false
+```
+
+Gate 3 会对缺失或降级的 Codex reviewer dispatch evidence 输出 WARN。
+
 ## Task Spawn Handoff
 
 专业 sub-skill spawn 必须经过 handoff packet：
@@ -232,6 +259,7 @@ Cowork Agent tool 目前不触发 PostToolUse。DevFlow 已通过 `finalize_disp
 |---|---|
 | `RELEASE-NOTES-v6.1.md` | v6.1 hardening 说明 |
 | `reference/cowork-as-host-platform.md` | Cowork 能力边界 |
+| `skills-source/dev-orchestrator/codex-as-host-platform.md` | Codex 能力边界与 dispatch runtime |
 | `reference/feishu-miaoda-as-host-platform.md` | 飞书妙搭 handoff 边界 |
 | `reference/devflow-self-evaluation-guide.md` | DevFlow 自评框架 |
 | `skills-source/dev-orchestrator/protocols/naming-canonical.md` | canonical 词表 |

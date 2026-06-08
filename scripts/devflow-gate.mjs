@@ -33,11 +33,11 @@ function getArg(name) {
 
 function usage() {
   console.error(`Usage:
-  node devflow-gate.mjs bootstrap --task-id <id> --project-path <path> --devflow-root <path> [--module-slug <slug>] [--authoritative-spec <path>] [--expected-artifact-globs <globs>]
+  node devflow-gate.mjs bootstrap --task-id <id> --project-path <path> --devflow-root <path> --host-platform <cowork|codex> [--module-slug <slug>] [--authoritative-spec <path>] [--expected-artifact-globs <globs>]
   node devflow-gate.mjs enter_phase --task-dir <path> --phase <phase>
   node devflow-gate.mjs post_gate3_write --task-dir <path> --target-path <path>
   node devflow-gate.mjs complete_task --task-dir <path>
-  node devflow-gate.mjs dispatch_skill --task-dir <path> --skill <skill> --phase <phase>
+  node devflow-gate.mjs dispatch_skill --task-dir <path> --skill <skill> --phase <phase> [--host-platform <cowork|codex>] [--dispatch-backend <cowork_skill|codex_multi_agent|manual>] [--dispatch-mode <true_subagent|role_emulation|user_explicit_skill_invocation>] [--degraded-independence <true|false>]
   node devflow-gate.mjs present_gate --task-dir <path> --gate <1|2|3>
   node devflow-gate.mjs transition --task-dir <path> --from <phase> --to <phase>
   node devflow-gate.mjs verify_state --task-dir <path>
@@ -109,6 +109,7 @@ try {
       const taskId = getArg('task-id');
       const projectPath = getArg('project-path') || process.cwd();
       const devflowRoot = getArg('devflow-root') || DEVFLOW_ROOT;
+      const hostPlatform = getArg('host-platform');
       const moduleSlug = getArg('module-slug');
       const authoritativeSpec = getArg('authoritative-spec');
       const expectedArtifactGlobs = getArg('expected-artifact-globs');
@@ -117,6 +118,7 @@ try {
         taskId,
         projectPath,
         devflowRoot,
+        hostPlatform,
         moduleSlug,
         authoritativeSpec,
         expectedArtifactGlobs,
@@ -144,7 +146,13 @@ try {
       const phase = getArg('phase');
       if (!skill) { console.error('Error: --skill is required for dispatch_skill'); process.exit(2); }
       if (!phase) { console.error('Error: --phase is required for dispatch_skill'); process.exit(2); }
-      result = checkDispatchSkill(resolvedTaskDir, skill, phase, eventsData);
+      const runtime = {
+        host_platform: getArg('host-platform'),
+        dispatch_backend: getArg('dispatch-backend'),
+        dispatch_mode: getArg('dispatch-mode'),
+        degraded_independence: getArg('degraded-independence'),
+      };
+      result = checkDispatchSkill(resolvedTaskDir, skill, phase, eventsData, runtime);
       break;
     }
     case 'present_gate': {

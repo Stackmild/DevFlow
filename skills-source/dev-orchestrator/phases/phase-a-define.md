@@ -52,7 +52,7 @@ A.0 Discovery:
 
      检测函数 is_devflow_root(path)：
        a) path 包含 skills-source/ 目录？
-       b) path 包含 CLAUDE.md 且前 5 行任意一行含 "# DevFlow"？
+       b) path 包含 CLAUDE.md 或 AGENTS.md，且该文件前 20 行任意一行含 "DevFlow"？
        判定：a AND b → true
 
      判定条件（满足以下任一组合）：
@@ -62,7 +62,7 @@ A.0 Discovery:
        - is_devflow_root(CWD)（无 orchestrator-state/ 但身份验证通过）
          → 认定为首次运行
          → detection_method = "direct_first_run"
-       - CWD 包含 skills-source/ 但 CLAUDE.md 缺失或不含 "# DevFlow"
+       - CWD 包含 skills-source/ 但 CLAUDE.md / AGENTS.md 均缺失或不含 "DevFlow"
          → 向用户确认："检测到 skills-source/ 目录，但未找到 DevFlow 标识。
            当前目录是否是你的 DevFlow 工作区？"
          → 用户确认 YES → 认定为 DevFlow 根（detection_method = "user_confirmed"）
@@ -92,12 +92,13 @@ A.0 Discovery:
            → project_path = CWD
            → detection_method = "external_manual"
 
-  2. 写入 task.yaml: devflow_root, project_path, detection_method
-  3. 写入 events.jsonl: task_initialized 事件中包含 detection_method 字段
-  4. project_path 在此步确定后不再变更（immutable for task lifetime）
+  2. 识别当前 host_platform：Cowork → `cowork`，Codex → `codex`
+  3. 写入 task.yaml: devflow_root, project_path, detection_method, host_platform
+  4. 写入 events.jsonl: task_initialized 事件中包含 detection_method + host_platform 字段
+  5. project_path 在此步确定后不再变更（immutable for task lifetime）
 ```
 
-**CWD 检测门控**：只检测 CWD 直接子目录，不做递归查找。is_devflow_root() 要求 skills-source/ AND CLAUDE.md 同时存在且 CLAUDE.md 前 5 行含 "# DevFlow"，排除偶然同名目录的误判。
+**CWD 检测门控**：只检测 CWD 直接子目录，不做递归查找。is_devflow_root() 要求 skills-source/ AND (`CLAUDE.md` OR `AGENTS.md`) 存在且前 20 行含 "DevFlow"，排除偶然同名目录的误判。
 
 **project_path 唯一规则**：
 - `project_path = ""`（空）= 内部项目，代码位置由 Phase B 的 `project_id` 推导为 `{devflow_root}/projects/{project_id}/`
@@ -120,7 +121,7 @@ orchestrator-state/{task_id}/
 └── events.jsonl
 ```
 
-生成 `run_id`，写入 task.yaml。
+生成 `run_id`，写入 task.yaml（Codex MVP 任务必须包含 `host_platform: codex`）。
 双写 changelog + events.jsonl（`task_initialized`）。
 
 ## Step A.2：预加载 Skill 指令
@@ -136,14 +137,16 @@ orchestrator-state/{task_id}/
 - `../code-reviewer/SKILL.md`
 - `../webapp-consistency-audit/SKILL.md`
 - `../pre-release-test-reviewer/SKILL.md`
+- `../playwright-e2e-testing/SKILL.md`
 - `./cowork-as-host-platform.md`
+- `./codex-as-host-platform.md`
 - `./feishu-miaoda-as-host-platform.md`
 - `./event-protocol.md`
 
 **按需**：
 - `../product-manager/SKILL.md`（需求模糊时）
 
-Checkpoint：至少 11 项全部 ✅ 后才可继续。
+Checkpoint：至少 13 项全部 ✅ 后才可继续。
 
 ## Step A.3：探索平台能力边界
 

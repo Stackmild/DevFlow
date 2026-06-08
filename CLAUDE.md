@@ -2,13 +2,13 @@
 
 ## 项目简介
 
-DevFlow 是一个运行在 Cowork 宿主平台上的**阶段驱动（Phase-Driven）多 Agent 半自动开发工作流系统**。它按照固定的阶段骨架（定义 → 产品分析 → 设计 → 执行+审查 → 收尾），在每个阶段自动调度合适的专业 skill（sub-agent），完成"设计 → 实现 → 审查"闭环。
+DevFlow 是一个以 Cowork 为主宿主的**阶段驱动（Phase-Driven）多 Agent 半自动开发工作流系统**，并提供 Codex MVP 宿主适配。它按照固定的阶段骨架（定义 → 产品分析 → 设计 → 执行+审查 → 收尾），在每个阶段自动调度合适的专业 skill（sub-agent），完成"设计 → 实现 → 审查"闭环。
 
 支持 Cowork 内部项目与**外部独立 repo**（V4.5）的混合场景，也支持飞书妙搭 cloud_config 与 local_code_sync 两种 handoff 模式。Schema Signal Patch（2026-04-05）在 change-package 和 review-report 两类产出 schema 上补强了三项结构化信号（`completion_status` / `debug_closure` / `verification_boundary`），详见下方"Schema Signal Patch"节。
 
 ## 核心原则
 
-1. **Cowork 是宿主平台，不是普通开发机**——先探索平台已有能力（AI 推理、搜索抓取、MCP、自动化），再决定哪些需要写代码
+1. **宿主平台不是普通开发机**——Cowork 是主宿主；Codex MVP 复用同一 Phase/Gate 骨架，但没有 Cowork hook 自动门禁。先探索宿主已有能力（AI 推理、搜索抓取、MCP、自动化/sub-agent），再决定哪些需要写代码
 2. **能用平台能力的不自建**——不重复造抓取层、AI 调用层、调度层
 3. **parent agent 是主控者**——持有最多上下文，做中间判断，不是纯文件路由器
 4. **写代码是最后手段**——platform > sub-agent > handoff > code
@@ -32,6 +32,7 @@ DevFlow/
 │   ├── code-reviewer/           # 代码审查
 │   ├── webapp-consistency-audit/ # 一致性审计
 │   ├── pre-release-test-reviewer/ # 发布前测试
+│   ├── playwright-e2e-testing/   # 浏览器 E2E/视觉 smoke 验证
 │   ├── state-auditor/           # State Store 审计
 │   ├── release-and-change-manager/ # 发布管理
 │   ├── component-library-maintainer/ # 组件维护
@@ -120,7 +121,7 @@ Phase F: 收尾（known_gaps 归集 → ROADMAP/DEFERRED 回填 → state-audito
 
 Canonical phase 名：`phase_a`, `phase_b`, `phase_c`, `phase_d_1`, `phase_d_2`, `phase_d_3`, `phase_f`。读取端兼容 legacy `phase_d`，写入端只允许 canonical。
 
-新任务必须由 `bootstrap` 初始化，`task.yaml` 必填：`task_id`, `project_path`, `devflow_root`, `protocol_version: 2`, `status`, `current_phase`, `started_at`, `module_slug`。
+新任务必须由 `bootstrap` 初始化，`task.yaml` 必填：`task_id`, `project_path`, `devflow_root`, `protocol_version: 2`, `host_platform`, `status`, `current_phase`, `started_at`, `module_slug`。
 
 ### 各阶段的 Skill 调度
 
@@ -195,7 +196,7 @@ v6.1 将 `scripts/devflow-gate.mjs` 扩展为 **9-action**，覆盖初始化、�
 
 | 动作 | 何时调用 | 防什么 |
 |------|---------|--------|
-| `bootstrap --task-id {id} --project-path {path} --devflow-root {path} --module-slug {slug}` | 任务第一步 | taskdir / task.yaml / events / permits 未初始化 |
+| `bootstrap --task-id {id} --project-path {path} --devflow-root {path} --host-platform {cowork|codex} --module-slug {slug}` | 任务第一步 | taskdir / task.yaml / events / permits 未初始化 |
 | `enter_phase --phase {P}` | 写 `phase_entered` 事件之前 | Phase 跳过（如跳过 Phase C 直接进 D） |
 | `post_gate3_write --target-path {path}` | Gate 3 ACCEPT 后写非 Phase F 允许文件前 | Gate 3 后系统逃逸（ad-hoc 写入） |
 | `complete_task` | closeout 时 | 假 closeout；成功后原子写 `status: completed` + `completed_at` |

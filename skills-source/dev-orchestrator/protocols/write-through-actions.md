@@ -14,9 +14,9 @@
 触发：每次 spawn sub-agent 前。
 
 ```
-0. ⚠️ GATE（V6.0）: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {skill} --phase {phase}
+0. ⚠️ GATE（V6.0）: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {skill} --phase {phase} [--host-platform {host_platform} --dispatch-backend {backend} --dispatch-mode {mode} --degraded-independence {true|false}]
    allowed: false → 停止，不得 spawn；allowed: true → 继续（permit 已自动写入 .permits/）
-1. 写 handoffs/handoff-{stage}-{skill}-{seq}.yaml    ← handoff packet
+1. 写 handoffs/handoff-{stage}-{skill}-{seq}.yaml    ← handoff packet；Codex 必须包含 runtime_context
 2. 写 events.jsonl: skill_dispatched                   ← 捎带写入
 3. 写 events.jsonl: artifact_consumed —— 以下场景必须写入（不是"如有"）：
    - D.1: artifact_consumed(implementation-scope→fsd)（或 product-spec→fsd 如 C skip）
@@ -36,7 +36,7 @@
 触发：每个 reviewer spawn 前 + 完成后。
 
 ```
-0a. ⚠️ GATE（V6.0）: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {reviewer} --phase phase_d
+0a. ⚠️ GATE（V6.0）: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {reviewer} --phase phase_d [--host-platform {host_platform} --dispatch-backend {backend} --dispatch-mode {mode} --degraded-independence {true|false}]
     allowed: false → 停止；allowed: true → 继续（permit 已自动写入 .permits/）
 0b. ⚠️ Reviewer Handoff Packet 构造（MANDATORY — **blocking gate**：handoff 不存在 = reviewer 不 spawn）：
    此规则**不分首轮/续行/轻量/完整**。RE-ENTER D 的 reviewer handoff 与首轮同级。
@@ -46,6 +46,7 @@
    - constraints → change_package_ref + expected_consumption（reviewer 应检查哪些 artifact）
    - known_gaps → missing_artifacts（空列表也必须声明）
    - expected_outputs → review-report.yaml (per contracts/review-report.md schema)
+   - runtime_context → Codex reviewer 必填 `host_platform=codex` / `dispatch_backend=codex_multi_agent` / `dispatch_mode=true_subagent` / `degraded_independence=false`
 
 1. 写 events.jsonl: skill_dispatched + artifact_consumed(change-package→reviewer)
    ⚠️ MANDATORY: artifact_consumed(change-package→reviewer) 必须写入

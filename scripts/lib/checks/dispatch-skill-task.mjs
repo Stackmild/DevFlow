@@ -21,6 +21,7 @@ const TASK_ID_RE = /task_id:\s*([\w-]+)/;
 const SKILL_AT_RE = /@([\w-]+)/;                          // @full-stack-developer
 const SKILL_NAME_RE = /skill_name:\s*["']?([\w-]+)/;       // skill_name: full-stack-developer
 const SKILL_RE = /(?:subagent_type|skill|subagentType):\s*["']?([\w-]+)/;
+const RUNTIME_FIELDS = ['host_platform', 'dispatch_backend', 'dispatch_mode', 'degraded_independence'];
 
 /**
  * Resolve the DevFlow sub-skill name from prompt content.
@@ -55,6 +56,56 @@ export function parseTaskSpawn(prompt, toolSkill) {
     handoffId: handoffIdMatch ? handoffIdMatch[1] : null,
     skill,
   };
+}
+
+function cleanScalar(value) {
+  return String(value || '').trim().replace(/^["']|["']$/g, '').replace(/\s+#.*$/, '');
+}
+
+export function parseRuntimeProvenance(text = '') {
+  const runtime = {};
+  const runtimeBlock = text.match(/^runtime_context:\s*\n((?:[ \t]+[A-Za-z_][\w-]*:\s*.*\n?)*)/m);
+
+  for (const field of RUNTIME_FIELDS) {
+    const blockMatch = runtimeBlock?.[1]?.match(new RegExp(`^\\s+${field}:\\s*([^\\n#]+)`, 'm'));
+    const topMatch = text.match(new RegExp(`^${field}:\\s*([^\\n#]+)`, 'm'));
+    const match = blockMatch || topMatch;
+    if (!match) continue;
+    const value = cleanScalar(match[1]);
+    if (!value) continue;
+    runtime[field] = field === 'degraded_independence'
+      ? value.toLowerCase() === 'true'
+      : value;
+  }
+
+  return runtime;
+}
+
+function runtimeFromObject(obj = {}) {
+  const source = obj.params || obj;
+  const runtime = {};
+  for (const field of RUNTIME_FIELDS) {
+    if (source[field] !== undefined && source[field] !== null && source[field] !== '') {
+      runtime[field] = field === 'degraded_independence'
+        ? String(source[field]).toLowerCase() === 'true'
+        : String(source[field]);
+    }
+  }
+  return runtime;
+}
+
+function runtimeWithTaskDefaults(taskDir, runtime = {}) {
+  const result = { ...runtime };
+  const task = readTaskYaml(taskDir) || {};
+  if (!result.host_platform && task.host_platform) {
+    result.host_platform = String(task.host_platform).trim();
+  }
+  if (result.host_platform === 'codex') {
+    if (!result.dispatch_backend) result.dispatch_backend = 'codex_multi_agent';
+    if (!result.dispatch_mode) result.dispatch_mode = 'true_subagent';
+    if (result.degraded_independence === undefined) result.degraded_independence = false;
+  }
+  return result;
 }
 
 export function resolveTaskDir(taskId, stateDirs) {
@@ -242,12 +293,13 @@ function sha8(text) {
   return Math.abs(h).toString(16).slice(0, 8);
 }
 
-export function writeDispatchAuthorized(taskDir, { taskId, handoffId, skill, toolUseId }) {
+export function writeDispatchAuthorized(taskDir, { taskId, handoffId, skill, toolUseId, runtime = {} }) {
   if (!taskDir) return null;
   const permitsDir = join(taskDir, '.permits');
   mkdirSync(permitsDir, { recursive: true });
   const ts = Date.now();
   const authId = toolUseId ? `${toolUseId}-${ts}` : `${handoffId || 'no-handoff'}-${ts}`;
+  const runtimePayload = runtimeWithTaskDefaults(taskDir, runtime);
   const permit = {
     action: 'dispatch' + '_authorized',
     task_id: taskId,
@@ -255,6 +307,7 @@ export function writeDispatchAuthorized(taskDir, { taskId, handoffId, skill, too
     skill,
     tool_use_id: toolUseId || null,
     authorized_at: new Date().toISOString(),
+    ...runtimePayload,
   };
   const fileName = `dispatch_authorized-${skill}-${authId}.json`;
   writeFileSync(join(permitsDir, fileName), JSON.stringify(permit, null, 2));
@@ -262,7 +315,7 @@ export function writeDispatchAuthorized(taskDir, { taskId, handoffId, skill, too
   // Write skill_dispatch_authorized event
   const event = {
     event_type: 'skill_dispatch_authorized',
-    payload: { task_id: taskId, handoff_id: handoffId, skill, tool_use_id: toolUseId || null, auth_id: authId },
+    payload: { task_id: taskId, handoff_id: handoffId, skill, tool_use_id: toolUseId || null, auth_id: authId, ...runtimePayload },
     timestamp: permit.authorized_at,
     source: 'devflow-enforcer',
   };
@@ -308,7 +361,7 @@ function statSync(path) {
   catch { return { mtimeMs: 0 }; }
 }
 
-export function finalizeDispatch(taskDir, { toolUseId, taskId, handoffId, skill, packetContent }) {
+export function finalizeDispatch(taskDir, { toolUseId, taskId, handoffId, skill, packetContent, runtime = {} }) {
   if (!taskDir) return false;
   const permitsDir = join(taskDir, '.permits');
   const authFile = findAuthorizedPermit(taskDir, { toolUseId, taskId, handoffId, skill });
@@ -318,22 +371,47 @@ export function finalizeDispatch(taskDir, { toolUseId, taskId, handoffId, skill,
   const hashSuffix = packetContent ? sha8(packetContent) : 'nopacket';
   const ts = Date.now();
   const finalName = `dispatch_skill-${skill}-${handoffId || 'no-handoff'}-${hashSuffix}-${ts}.json`;
+  const oldPath = join(permitsDir, authFile);
+  const newPath = join(permitsDir, finalName);
+  let authPermit = null;
   try {
-    const oldPath = join(permitsDir, authFile);
-    const newPath = join(permitsDir, finalName);
+    authPermit = JSON.parse(readFileSync(oldPath, 'utf8'));
+  } catch {
+    authPermit = null;
+  }
+  const runtimePayload = runtimeWithTaskDefaults(taskDir, {
+    ...runtimeFromObject(authPermit || {}),
+    ...runtime,
+  });
+  try {
     renameSync(oldPath, newPath);
   } catch {
     // Fallback: copy then delete
     try {
-      const content = readFileSync(join(permitsDir, authFile), 'utf8');
-      writeFileSync(join(permitsDir, finalName), content);
-      unlinkSync(join(permitsDir, authFile));
+      const content = readFileSync(oldPath, 'utf8');
+      writeFileSync(newPath, content);
+      unlinkSync(oldPath);
     } catch { return false; }
+  }
+  try {
+    const finalPermit = {
+      ...(authPermit || {}),
+      action: 'dispatch_skill',
+      task_id: taskId,
+      handoff_id: handoffId,
+      skill,
+      tool_use_id: toolUseId || null,
+      finalized_at: new Date().toISOString(),
+      ...runtimePayload,
+    };
+    writeFileSync(newPath, JSON.stringify(finalPermit, null, 2));
+  } catch {
+    // Permit rename already succeeded; final metadata rewrite is best-effort.
   }
 
   const event = {
     event_type: 'skill_dispatched',
-    payload: { task_id: taskId, handoff_id: handoffId, skill, tool_use_id: toolUseId || null },
+    payload: { task_id: taskId, handoff_id: handoffId, skill, tool_use_id: toolUseId || null, ...runtimePayload },
     timestamp: new Date().toISOString(),
     source: 'devflow-enforcer',
   };
@@ -341,7 +419,7 @@ export function finalizeDispatch(taskDir, { toolUseId, taskId, handoffId, skill,
   return true;
 }
 
-export function failDispatch(taskDir, { toolUseId, taskId, handoffId, skill }) {
+export function failDispatch(taskDir, { toolUseId, taskId, handoffId, skill, runtime = {} }) {
   if (!taskDir) return false;
   const permitsDir = join(taskDir, '.permits');
   const authFile = findAuthorizedPermit(taskDir, { toolUseId, taskId, handoffId, skill });
@@ -349,9 +427,10 @@ export function failDispatch(taskDir, { toolUseId, taskId, handoffId, skill }) {
     try { unlinkSync(join(permitsDir, authFile)); } catch { /* ignore */ }
   }
 
+  const runtimePayload = runtimeWithTaskDefaults(taskDir, runtime);
   const event = {
     event_type: 'skill_dispatch_failed',
-    payload: { task_id: taskId, handoff_id: handoffId, skill, tool_use_id: toolUseId || null },
+    payload: { task_id: taskId, handoff_id: handoffId, skill, tool_use_id: toolUseId || null, ...runtimePayload },
     timestamp: new Date().toISOString(),
     source: 'devflow-enforcer',
   };

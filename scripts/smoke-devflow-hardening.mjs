@@ -119,7 +119,7 @@ function tryJson(text) {
   const projectPath = join(tmp, 'project');
   mkdirSync(projectPath, { recursive: true });
 
-  const r = runGate(`bootstrap --task-id ${taskId} --project-path "${projectPath}" --devflow-root "${REPO_ROOT}" --module-slug calc-bugfix`);
+  const r = runGate(`bootstrap --task-id ${taskId} --project-path "${projectPath}" --devflow-root "${REPO_ROOT}" --host-platform cowork --module-slug calc-bugfix`);
   const taskDir = join(REPO_ROOT, 'orchestrator-state', taskId);
 
   if (!r.ok) fail('bootstrap exit code', `exit ${r.code}: ${r.stderr}`);

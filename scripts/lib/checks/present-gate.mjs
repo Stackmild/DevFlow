@@ -27,6 +27,24 @@ function isReviewerReport(filename) {
   return Object.values(REVIEWER_REPORT_ALIASES).includes(filename);
 }
 
+function readPermitJson(taskDir, filename) {
+  try {
+    return JSON.parse(readFileSync(join(taskDir, '.permits', filename), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function dispatchPermitPayload(permit) {
+  return {
+    ...(permit?.params || {}),
+    host_platform: permit?.host_platform || permit?.params?.host_platform,
+    dispatch_backend: permit?.dispatch_backend || permit?.params?.dispatch_backend,
+    dispatch_mode: permit?.dispatch_mode || permit?.params?.dispatch_mode,
+    degraded_independence: permit?.degraded_independence ?? permit?.params?.degraded_independence,
+  };
+}
+
 export function check(taskDir, gate, { warnings: readWarnings }) {
   const violations = [];
   const warnings = [...readWarnings];
@@ -227,6 +245,44 @@ export function check(taskDir, gate, { warnings: readWarnings }) {
       );
     } else if (hasConsistencyAudit) {
       checksPass.push('upstream_permit_consistency_audit');
+    }
+
+    // Codex runtime provenance check. Codex review independence depends on true sub-agent dispatch.
+    const dispatchPermits = permits
+      .filter(p => p.startsWith('dispatch_skill-'))
+      .map(p => ({ file: p, data: readPermitJson(taskDir, p) }))
+      .filter(p => p.data);
+    const codexTask = taskYaml.host_platform === 'codex' || dispatchPermits.some(p => dispatchPermitPayload(p.data).host_platform === 'codex');
+    const reviewerPermits = dispatchPermits.filter(p =>
+      REVIEWER_SKILLS.some(skill => p.file.startsWith(`dispatch_skill-${skill}-`))
+    );
+    if (!taskYaml.host_platform) {
+      for (const permit of reviewerPermits) {
+        const payload = dispatchPermitPayload(permit.data);
+        if (!payload.host_platform) {
+          warnings.push(`${permit.file}: reviewer dispatch runtime provenance missing host_platform — Codex reviewer independence cannot be confirmed if this task ran on Codex`);
+        }
+      }
+    }
+    if (codexTask) {
+      if (reviewerPermits.length === 0) {
+        warnings.push('Codex runtime detected but reviewer dispatch provenance is missing — review independence cannot be confirmed beyond filename permits');
+      }
+      for (const permit of reviewerPermits) {
+        const payload = dispatchPermitPayload(permit.data);
+        if (payload.host_platform !== 'codex') {
+          warnings.push(`${permit.file}: missing host_platform=codex runtime provenance for reviewer dispatch`);
+        }
+        if (payload.dispatch_backend !== 'codex_multi_agent') {
+          warnings.push(`${permit.file}: dispatch_backend is not codex_multi_agent — reviewer independence evidence is degraded`);
+        }
+        if (payload.dispatch_mode !== 'true_subagent') {
+          warnings.push(`${permit.file}: dispatch_mode is not true_subagent — reviewer independence is degraded`);
+        }
+        if (payload.degraded_independence === true || payload.degraded_independence === 'true') {
+          warnings.push(`${permit.file}: degraded_independence=true — Gate 3 must disclose degraded reviewer independence`);
+        }
+      }
     }
 
     // --- Check 4 (Schema Signal Patch): Reviewer dispatch downgrade detection ---
