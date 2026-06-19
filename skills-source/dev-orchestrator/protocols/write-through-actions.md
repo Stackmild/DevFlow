@@ -36,7 +36,7 @@
 触发：每个 reviewer spawn 前 + 完成后。
 
 ```
-0a. ⚠️ GATE（V6.0）: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {reviewer} --phase phase_d
+0a. ⚠️ GATE（V6.0）: node scripts/devflow-gate.mjs dispatch_skill --task-dir {state_dir} --skill {reviewer} --phase phase_d_2
     allowed: false → 停止；allowed: true → 继续（permit 已自动写入 .permits/）
 0b. ⚠️ Reviewer Handoff Packet 构造（MANDATORY — **blocking gate**：handoff 不存在 = reviewer 不 spawn）：
    此规则**不分首轮/续行/轻量/完整**。RE-ENTER D 的 reviewer handoff 与首轮同级。
@@ -187,7 +187,7 @@ Write-through templates 定义了单个写操作的原子性。本节定义跨�
 **Phase D（三步不可拆分闭环）**：
 - D.1 FSD 返回 → 写 change-package → routing-decision-D → handoff-D2 → dispatch reviewer(s)
 - D.2 reviewer 返回 → record_review → 提取 issues → review-completeness-summary → pre-gate-check-3 → Gate 3 展示
-- Gate 3 ACCEPT → record_gate → phase_completed(phase_d) → phase_entered(phase_f) → Phase F 执行 → task_completed
+- Gate 3 ACCEPT → record_gate → transition --from phase_d_3 --to phase_f（原子写 phase_completed(phase_d_3) + phase_entered(phase_f)）→ Phase F 执行 → task_completed
 
 ### 违反后果
 

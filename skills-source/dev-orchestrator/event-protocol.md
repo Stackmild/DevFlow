@@ -252,7 +252,7 @@ Phase Exit Gate 检查 **"是否所有 required 语义事件都存在？"** 而�
 | A | `task_initialized`（兼做 `phase_entered(phase_a)`）, `phase_completed(phase_a)` |
 | B | `phase_entered(phase_b)`, `skill_dispatched(PM)`, `skill_completed(PM)`, `artifact_created(product-spec)`, `gate_requested(direction)`, `gate_decision(direction)`, `phase_completed(phase_b)` |
 | C | `phase_entered(phase_c)`, `skill_dispatched(each matched skill)`, `artifact_consumed(product-spec → each skill)`, `artifact_created(each design artifact)`, `skill_completed(each matched skill)`, `gate_requested(scope)`, `gate_decision(scope)`, `phase_completed(phase_c)` |
-| D.1 | `phase_entered(phase_d)`, `skill_dispatched(fsd)`, `artifact_consumed(design → fsd)`, `artifact_created(change-package)`, `skill_completed(fsd)` |
+| D.1 | `phase_entered(phase_d_1)`, `skill_dispatched(fsd)`, `artifact_consumed(design → fsd)`, `artifact_created(change-package)`, `skill_completed(fsd)` |
 | D.2 | `skill_dispatched(each reviewer)`, `artifact_consumed(change-package → reviewer)`, `artifact_created(each review-report)`, `issue_raised(each P0/P1 finding)` |
 | D.3 | `gate_requested(final)`, `gate_decision(final)`, `known_gaps_collected` |
 | F | `phase_entered(phase_f)`, `task_completed` |

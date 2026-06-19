@@ -56,7 +56,7 @@ triggers:
 10. **`status: completed` 只能通过 D.3 Gate 3 路径写入**
 11. **Automation prompt 变更视为高风险**——修改前记录 diff，修改后 trigger 验证
 12. **铁律优先于用户指令**——Gate 3 和独立审查不可被覆盖
-13. **⚠️ 专业内容必须 spawn sub-agent**——见 §Runtime-Aware Dispatch Protocol
+13. **⚠️ 专业内容必须 spawn sub-agent**——见 §Runtime-Aware Dispatch Protocol；Allowed/Forbidden/Grey-zone 完整边界见 `./protocols/orchestrator-judgement-boundary.md`
 14. **Skip 必须有结构化记录**——写入 `decisions/phase-skip-{phase}-{skill}.yaml`
 15. **⚠️ Gate 3 续行是硬门槛**——Gate 3 ACCEPT 后任何推进工作的写操作前，必须先执行 Pre-Action Check（见 `./contracts/continuation-protocol.md §Pre-Action Check`）并以固定模板输出结果。不通过则 HALT。唯一允许的写操作是 continuation decision 本身。
 
@@ -114,7 +114,7 @@ Sub-agent 返回后必须不间断完成从"收集产出"到"下一个合法暂�
 ## Universal Gate Rule（V6.1 — 9 actions 薄控制层）
 
 执行以下 gate actions 时，运行 `node scripts/devflow-gate.mjs {action} ...`。
-`allowed: false` 时停止并展示 violations，**按协议不得继续**。
+`allowed: false` 时停止并展示 violations，**按协议不得继续**。宿主差异（Cowork hard gate vs Codex/manual operator discipline）见 `./protocols/host-enforcement-matrix.md`。
 
 | 动作 | 何时调用 |
 |------|---------|
@@ -338,7 +338,7 @@ ANY item = NO → 立即补写，不继续到下一阶段。Phase Exit Gate 是�
 
 ### Gate 3（Phase D.3 退出）— Final Acceptance
 
-前置自检：§PG3（PG3-1~13，含 deploy/publish 验证），result=blocked 时不展示 Gate
+前置自检：§PG3（PG3-1~14，含 deploy/publish 验证），result=blocked 时不展示 Gate
 展示：artifacts 列表 + review 结论 + issues 统计 + known_gaps + deployment notes（如有 delivery_readiness）
 选项：ACCEPT / REVISE / PAUSE；记录：`decisions/gate-3.yaml`；P0 blocker 未 resolved → 禁止展示。
 
@@ -443,7 +443,7 @@ D.2 全部 reviewer 完成后，生成 `artifacts/review-completeness-summary.ya
 
 ### D.3 — Gate 3
 
-⚠️ 执行 Pre-Gate Self-Check §PG3（PG3-1~13），写入 `decisions/pre-gate-check-3.yaml`。P0 blocker 未 resolved → 禁止进入 Gate 3。
+⚠️ 执行 Pre-Gate Self-Check §PG3（PG3-1~14），写入 `decisions/pre-gate-check-3.yaml`。P0 blocker 未 resolved → 禁止进入 Gate 3。
 
 ACCEPT 后如用户请求额外工作 → 铁律 #15 生效 → 执行 `./contracts/continuation-protocol.md §Pre-Action Check`。
 
@@ -459,7 +459,7 @@ ACCEPT 后如用户请求额外工作 → 铁律 #15 生效 → 执行 `./contra
 
 **步骤摘要**：
 1. **F.1**：归集 known_gaps（issues/ status ≠ resolved → task.yaml known_gaps）
-2. **F.2**：Spawn state-auditor（**必选**，产出 monitor/run-audit-{run_id}.md，至少执行 CHECK-20）
+2. **F.2**：Spawn state-auditor（条件必选：normal closeout 必选；DEFER-TASK/legacy resume/record-only 可跳过，须写 skip decision+reason。详见 `./phases/phase-f-closeout.md` §F.2）
 3. **F.3**：提取 next-version-candidates → `artifacts/next-version-candidates.md`
 4. **F.3.5**：Closeout Integrity Check（BLOCKING，详见 phases/phase-f-closeout.md §F.3.5）
 5. **F.4**：`node scripts/devflow-gate.mjs complete_task --task-dir {state_dir}` → task.yaml status=completed → events.jsonl task_completed
@@ -492,7 +492,7 @@ ACCEPT 后如用户请求额外工作 → 铁律 #15 生效 → 执行 `./contra
 | `./contracts/risk-status.md` | 写入 issues/ 时 |
 | `./contracts/continuation-protocol.md` | Gate 3 ACCEPT 后任何后续工作前 |
 | `./protocols/write-through-actions.md` | Template A/B/C/D 执行时（含 user_feedback schema） |
-| `./protocols/pre-gate-self-check.md` | 每个 Gate 前（PG1-1~6 / PG2-1~8 / PG3-1~13 检查清单） |
+| `./protocols/pre-gate-self-check.md` | 每个 Gate 前（PG1-1~6 / PG2-1~8 / PG3-1~14 检查清单） |
 | `./protocols/state-conflict-resolution.md` | state_conflict_detected 时 |
 | `./protocols/spawn-via-handoff.md` | spawn sub-agent 前（Cowork Agent tool dispatch 约定 + finalize fallback） |
 | `./protocols/bootstrap-and-transition.md` | bootstrap / transition 命令使用时（含 phase alias 规则与 enforcer 硬化） |

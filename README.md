@@ -20,7 +20,7 @@ v6.1 重点是状态机硬化：bootstrap 强制初始化、Task spawn 必经 ha
    - hook command 指向 `scripts/devflow-enforcer.mjs`
 5. 输入 `@dev-orchestrator {任务描述}` 启动。
 
-没有 hook，DevFlow 仍能运行 skill，但 v6.1 的强制门禁不会完整生效。
+没有 hook，DevFlow 仍能运行 skill，但 v6.1 的强制门禁不会完整生效。Cowork 上为 hook 硬拦截（PreToolUse/PostToolUse DENY）；Codex / manual 环境下退化为 operator discipline（需手动跑 gate 命令）+ advisory 协议。宿主差异详见 `skills-source/dev-orchestrator/protocols/host-enforcement-matrix.md`。
 
 ## 外部 repo 模式
 
@@ -48,7 +48,7 @@ Canonical phase 名称：
 | `phase_d_1` | 执行 | `full-stack-developer` | - |
 | `phase_d_2` | 审查 | `code-reviewer` + 条件审查员（UI 改动时追加 `webapp-consistency-audit`、`playwright-e2e-testing`） | - |
 | `phase_d_3` | 收尾准备 | orchestrator | Gate 3 |
-| `phase_f` | 最终收尾、回填、审计 | `state-auditor` 可选 | - |
+| `phase_f` | 最终收尾、回填、审计 | `state-auditor` 条件必选（normal closeout 必选；DEFER-TASK/legacy resume/record-only 可跳过，须写 skip decision+reason） | - |
 
 读取端兼容 legacy `phase_d`，写入端只允许 canonical `phase_d_1/2/3`。
 
@@ -195,7 +195,7 @@ rg --files -g '*.mjs' scripts | xargs -n1 node --check
 node scripts/smoke-devflow-hardening.mjs
 ```
 
-当前基线：`smoke-devflow-hardening.mjs` 51/51 PASS。
+当前基线：`smoke-devflow-hardening.mjs` 59/59 PASS。
 
 ## 关键文件
 

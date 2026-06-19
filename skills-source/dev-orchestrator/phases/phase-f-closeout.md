@@ -13,13 +13,13 @@ INPUT:
 
 ORCHESTRATOR_ROLE:
   - 从 issues/ 聚合 known gaps
-  - 可选 spawn state-auditor
+  - spawn state-auditor（normal closeout 必选；例外路径见 §F.2）
   - 提取下一轮候选
   - 标记 task 为 completed
   - 不产出新的专业内容
 
 SUB_AGENT_ROLE:
-  - state-auditor（可选）产出审计报告
+  - state-auditor（条件必选，见 §F.2）产出审计报告
 
 MUST_PRODUCE:
   - task.yaml: known_gaps 聚合自 issues/
@@ -63,14 +63,23 @@ EVENTS_REQUIRED:
 2. 按 object_family 分类（issue / risk / override）
 3. 写入 task.yaml known_gaps
 
-## Step F.2：Spawn state-auditor
+## Step F.2：Spawn state-auditor（条件必选）
 
-⚠️ **Phase F 不要求第一轮强制 spawn**。但如果 spawn：
-
+**Normal closeout（标准 D.3→F 路径）**：**必选** spawn state-auditor。
 - 传入 task_id + run_id
 - state-auditor 独立读取 state store
 - 产出 `monitor/run-audit-{run_id}.md` + `monitor/run-audit-{run_id}.json`
+- 至少执行 CHECK-20（验证 pre-gate self-check 执行记录）
 - orchestrator 读取审计摘要，向用户展示
+
+**例外路径（可跳过，但必须写 skip decision）**：
+- Gate 1 decision = DEFER-TASK（走 F.1 + F.4/F.5 简化路径）
+- legacy resume 旧 task（旧 task 已完成，仅做后续操作）
+- Continuation Protocol Path 3（RECORD-AND-STOP，纯记录关闭）
+
+跳过要求：写 `decisions/phase-skip-phase_f-state-auditor.yaml`，含 `skip_reason`（≥10 字）和 `skipped_by`（`orchestrator` 或 `human`）。
+
+> ⚠️ **Runtime limitation**：`complete_task` 当前不检查 `monitor/run-audit-*` 或 skip 文件存在性。state-auditor 条件必选目前为 **docs/protocol rule**，非 runtime hard gate。Orchestrator 必须自律执行。
 
 ## Step F.3：提取下一轮候选
 
@@ -86,9 +95,9 @@ EVENTS_REQUIRED:
 |---|------|--------|
 ⚠️ **遗留任务兼容性**：CI-1/CI-2 仅对**新创建的 task**（本协议实施后产生）强制执行。如果 resume 一个已完成（status=completed）的旧 task 进行后续操作，CI 检查基于旧 task 的实际 events.jsonl 内容判断，不应 BLOCK 正常已完成状态。
 
-| CI-1 | events.jsonl 包含 `phase_completed(phase_d)` | **BLOCK** — Phase D 未正式关闭 |
+| CI-1 | events.jsonl 包含 `phase_completed(phase_d_3)`（legacy 裸 `phase_d` 仅作 grandfather fallback，新任务必须为 phase_d_3） | **BLOCK** — Phase D 未正式关闭 |
 | CI-2 | events.jsonl 包含 `phase_entered(phase_f)` | **BLOCK** — Phase F 未正式进入 |
-| CI-3 | task.yaml.completed_phases 包含 phase_d | **BLOCK** — Iron Law #8 违反 |
+| CI-3 | task.yaml.completed_phases 包含 phase_d_3（legacy 裸 phase_d 仅作 grandfather fallback） | **BLOCK** — Iron Law #8 违反 |
 | CI-4 | issues/ 中所有 P0/P1 issue status = resolved 或 known_gap | **BLOCK** — open P0/P1 不允许 completed |
 | CI-5a | task.yaml.open_issues_count 与 issues/ 实际 open 数不一致，**仅为派生计数偏差**（underlying issue state 本身正确） | **WARN** — 自动修正 count 后继续 |
 | CI-5b | issues/ 中某 issue 应为 resolved（events.jsonl 有 revision_applied 事件但 status ≠ resolved）但仍为 open，**underlying state 本身不一致** | **BLOCK** — issue state 不一致，需补齐 resolution |

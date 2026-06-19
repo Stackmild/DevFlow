@@ -60,7 +60,9 @@ EVENTS_REQUIRED:
 
 ## Capability Selector
 
-⚠️ **Phase 2 方向预告**：`../routing/phase-c-selector.yaml` 已包含 V1.0 config 规则，但**当前尚未激活为运行时真相源**（状态：P1 / not yet authoritative）。正式激活前，下方 narrative rules 仍为执行依据。
+⚠️ **Phase C selector 已知限制**：`../routing/phase-c-selector.yaml` 为 draft / not authoritative，当前**不参与运行时选择**。v6.1 中 Phase C skill 选择的**唯一运行时依据**是下方 narrative rules；selector config 激活单独排期。
+
+> routing-decision-C.yaml 使用 `matched_skills` / `deviations`（narrative-based），**不**使用 `config_rule_matched`（后者仅 Phase D routing-decision-D.yaml 使用）。
 
 基于 task_type + scope tags，对照以下表选择 skill。
 

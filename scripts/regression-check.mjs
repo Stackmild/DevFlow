@@ -1,7 +1,10 @@
 #!/usr/bin/env node
-// regression-check.mjs — DevFlow自迭代系统 Step 3
-// 读 normalized facts，按3阶段（applicability → data-sufficiency → pass/fail）跑断言。
+// regression-check.mjs — DevFlow 自迭代系统 Step 3（retrospective validator）
+// 读 normalized facts，按 3 阶段（applicability → data-sufficiency → pass/fail）跑断言。
 // 输出: per-task 断言结果 + 聚合报告 + (可选) evaluation YAML
+//
+// ⚠️ 本脚本是 retrospective 自迭代校验器（读历史 task 的 normalized facts），
+//    兼容 legacy + canonical phase 名，非 v6.1 runtime gate validator。
 //
 // CLI:
 //   node scripts/regression-check.mjs --all
@@ -90,6 +93,9 @@ const ASSERTIONS = [
   },
 ];
 
+// ─── Phase D 匹配器（legacy-tolerant：裸 phase_d + canonical phase_d_1/2/3）──────
+const PHASE_D_ENTRIES = new Set(['phase_d', 'phase_d_1', 'phase_d_2', 'phase_d_3']);
+
 // ─── 断言逻辑（阶段3：pass/fail 判定）────────────────────────────────────────
 
 const EVALUATORS = {
@@ -97,10 +103,10 @@ const EVALUATORS = {
   'change-package-required': (fact) => {
     // Only applies if task actually entered Phase D
     const enteredPhaseD = (fact.canonical_events || [])
-      .some(e => e.event_type === 'phase_entered' && e.phase === 'phase_d');
+      .some(e => e.event_type === 'phase_entered' && PHASE_D_ENTRIES.has(e.phase));
     if (!enteredPhaseD) {
       return { result: 'not_applicable', stage_reached: 'applicability',
-               reason: 'No phase_entered(phase_d) event — Phase D was not entered' };
+               reason: 'No phase_entered(phase_d_1/2/3) event — Phase D was not entered' };
     }
     const hasChangePkg = (fact.canonical_artifacts || [])
       .some(a => a.name && a.name.toLowerCase().startsWith('change-package'));
@@ -127,7 +133,7 @@ const EVALUATORS = {
     const hasPhaseD = (fact.canonical_artifacts || [])
       .some(a => a.name && a.name.toLowerCase().startsWith('change-package'))
       || (fact.canonical_events || [])
-      .some(e => e.event_type === 'phase_entered' && e.phase === 'phase_d')
+      .some(e => e.event_type === 'phase_entered' && PHASE_D_ENTRIES.has(e.phase))
       || (fact.canonical_decisions || [])
       .some(d => d._source_file && d._source_file.startsWith('gate-3'));
 
@@ -155,10 +161,10 @@ const EVALUATORS = {
   'review-artifact-required': (fact) => {
     // Only applies if task actually entered Phase D
     const enteredPhaseD = (fact.canonical_events || [])
-      .some(e => e.event_type === 'phase_entered' && e.phase === 'phase_d');
+      .some(e => e.event_type === 'phase_entered' && PHASE_D_ENTRIES.has(e.phase));
     if (!enteredPhaseD) {
       return { result: 'not_applicable', stage_reached: 'applicability',
-               reason: 'No phase_entered(phase_d) event — Phase D was not entered' };
+               reason: 'No phase_entered(phase_d_1/2/3) event — Phase D was not entered' };
     }
     const REVIEW_PATTERNS = /review|audit|consistency|prerelease|pre-release/i;
     const hasReview = (fact.canonical_artifacts || [])

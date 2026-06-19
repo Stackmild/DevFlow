@@ -131,7 +131,7 @@ Canonical phase 名：`phase_a`, `phase_b`, `phase_c`, `phase_d_1`, `phase_d_2`,
 | **Phase C** | `web-app-architect` `backend-data-api` `webapp-interaction-designer` `frontend-design` | 按需调度，bugfix 可跳过 |
 | **Phase D.1** | `full-stack-developer` | 执行编码，产出 change-package（V5.0：新增 `completion_status` + 条件字段 `debug_closure` / `verification_boundary`） |
 | **Phase D.2** | `code-reviewer` + 条件审查员 | UI 改动加 `webapp-consistency-audit` + `playwright-e2e-testing`，数据/API 改动加 `pre-release-test-reviewer` |
-| **Phase F** | `state-auditor`（可选） | State Store 完整性审计 |
+| **Phase F** | `state-auditor`（条件必选：normal closeout 必选；DEFER-TASK/legacy resume/record-only 可跳过，须写 skip decision+reason） | State Store 完整性审计 |
 
 ## 回流与修订机制
 
@@ -170,15 +170,15 @@ DevFlow 不是纯串行流程，每个 Gate 和审查节点都支持回流：
 
 每个 Gate 展示前，orchestrator 会**静默、自动**地执行一批结构性完整性检查（源自 state-auditor 的 CHECK 项前移）。这些检查**不会拉长流程**——正常情况下用户完全感知不到，只有检查失败时才会打断并告知原因。
 
-27 项检查分布在三个 Gate 前（6 + 8 + 13），而非每个 Gate 前都跑 27 项：
+28 项检查分布在三个 Gate 前（6 + 8 + 14），而非每个 Gate 前都跑 28 项：
 
-> Gate 3 前 13 项包含 V4.5 新增的 PG3-12/13（deploy/publish task 的 build/typecheck 强制验证）。
+> Gate 3 前 14 项包含 V4.5 新增的 PG3-12/13/14（deploy/publish task 的 build/typecheck 强制验证 + design consumption receipt）。
 
 | Gate | 检查项数 | 检查示例 |
 |------|---------|---------|
 | Gate 1 前 | 6 项 | task.yaml 关键字段非空、product-spec 存在、routing-decision 存在 |
 | Gate 2 前 | 8 项 | Gate 1 决策存在、implementation-scope 存在且非 orchestrator 产出、设计 skill 全部完成 |
-| Gate 3 前 | 13 项 | change-package 存在、至少 1 个独立 reviewer 完成、无未解决 blocker、deploy task 的 build/typecheck 验证 |
+| Gate 3 前 | 14 项 | change-package 存在、至少 1 个独立 reviewer 完成、无未解决 blocker、deploy task 的 build/typecheck 验证、design consumption receipt |
 
 检查结果：
 - **PASS** — Gate 正常展示，用户无感知
@@ -206,6 +206,8 @@ v6.1 将 `scripts/devflow-gate.mjs` 扩展为 **9-action**，覆盖初始化、�
 | `finalize_dispatches --task-dir {path} [--force]` | gate action 前自动执行 | Cowork Agent tool 不触发 PostToolUse，dispatch 授权无法自动 finalize |
 
 这是**半硬闸门**：调用了 → 脚本给出 machine-readable ALLOW/BLOCK + 自动写 `.permits/` 证据文件；绕过了 → permit 缺失，后续 gate / `verify_state` / incremental auditor 会反压。v6.1 新任务中 permit 不是可选证据，permit 写失败会 BLOCK。
+
+> **宿主差异**：以上 hook 硬拦截仅在 Cowork 生效。Codex / manual 环境下这些规则退化为 operator discipline（需手动跑 gate 命令），详见 `./skills-source/dev-orchestrator/protocols/host-enforcement-matrix.md`。
 
 ```bash
 # 示例：Phase C 完成后原子切换到 D.1

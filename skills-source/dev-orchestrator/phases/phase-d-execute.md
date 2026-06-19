@@ -46,7 +46,7 @@ EVENTS_REQUIRED:
 
 ## Phase Entry Protocol
 
-⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_d`
+⚠️ GATE: `node scripts/devflow-gate.mjs enter_phase --task-dir {state_dir} --phase phase_d_1`
 
 1. Read `task.yaml`（确认 Phase C completed 或 C skip rationale 存在）
 2. Read `artifacts/implementation-scope.md`（如 Phase C 未 skip）或 `artifacts/product-spec.md`（如 C skip）
@@ -367,7 +367,7 @@ release_manager_trigger_reason: "delivery_readiness 字段存在" | "N/A"
 
 ### 前置验证（Pre-Gate 3 Self-Check）
 
-⚠️ 原有 4 条前置验证已整合进 `../protocols/pre-gate-self-check.md` §2.3（PG3-1~13）。
+⚠️ 原有 4 条前置验证已整合进 `../protocols/pre-gate-self-check.md` §2.3（PG3-1~14）。
 必须写入 `decisions/pre-gate-check-3.yaml`。`result=blocked` 时 Gate 3 不展示。
 `result=pass/pass_with_warnings` 时继续 Known Gaps 归集 → 展示 Gate 3。
 
@@ -430,15 +430,19 @@ release_manager_trigger_reason: "delivery_readiness 字段存在" | "N/A"
 
 ### Phase D Exit Sequence（V4.3 硬规则）
 
-Gate 3 决策写入后，必须按以下严格顺序完成 Phase D 退出：
+Gate 3 决策写入后，执行：
 
-1. `gate_decision(final)` event 写入 ← 已完成（Gate 3 展示时写入）
-2. `phase_completed(phase_d)` event 写入 ← **必须在此步骤完成**
-3. task.yaml.completed_phases 追加 phase_d 条目（铁律 #8）
-4. `phase_entered(phase_f)` event 写入 ← 只有步骤 2-3 完成后才允许
+```
+node scripts/devflow-gate.mjs transition --from phase_d_3 --to phase_f
+```
 
-> ⚠️ `gate_decision(final)` 后直接写 `phase_entered(phase_f)` = Phase D Exit FAIL。
-> 这是 state-auditor CHECK-14 的检查项。
+该命令原子完成：
+1. 写入 `phase_completed(phase_d_3)` event
+2. 写入 `phase_entered(phase_f)` event
+3. 追加 `phase_d_3` 到 `task.yaml.completed_phases`
+4. 更新 `task.yaml.current_phase = phase_f`
+
+> ⚠️ 禁止手写 `phase_completed` / `phase_entered` / `completed_phases` —— enforcer 会 DENY 非 `transition` 生成的事件。transition 保证 `gate_decision(final)` 在 `phase_entered(phase_f)` 之前（原 CHECK-14 语义）。
 
 ### D.3 Exit Condition
 
@@ -451,9 +455,9 @@ Gate 3 决策写入后，必须按以下严格顺序完成 Phase D 退出：
 - [ ] artifacts/review-completeness-summary.yaml 存在（D.2 产出）
 - [ ] Finding 覆盖率：所有 P0/P1 findings 有 issue_ref/risk_ref/false_positive
 - [ ] routing-decision-D.yaml 存在
-- [ ] phase_completed(phase_d) event 已写入（在 gate_decision 之后、phase_entered(phase_f) 之前）
+- [ ] phase_completed(phase_d_3) event 已写入（由 transition 生成，在 gate_decision 之后、phase_entered(phase_f) 之前）
 - [ ] EVENTS_REQUIRED（D.1+D.2+D.3）全部满足
 - [ ] task.yaml live state 已更新（current_phase→phase_f）
-- [ ] task.yaml.completed_phases 包含 phase_d 条目（铁律 #8 硬条件）
+- [ ] task.yaml.completed_phases 包含 phase_d_3 条目（铁律 #8 硬条件）
 - [ ] `decisions/pre-gate-check-3.yaml` 写入
 ```

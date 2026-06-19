@@ -1,8 +1,8 @@
 # Phase C Capability Selector — V1.0
-# Status: P1 / NOT YET AUTHORITATIVE — narrative rules in phase-c-plan.md 仍为执行依据
+# Status: DRAFT / NOT YET AUTHORITATIVE — narrative rules in phase-c-plan.md 是唯一运行时执行依据
 #
-# ⚠️ 本文件已包含完整规则，但尚未被 orchestrator 激活为运行时真相源。
-#    Phase C 配置化正式激活需等 P1 正式上线。
+# ⚠️ 本文件为 draft，仅供未来 config 化参考；当前不参与运行时选择。
+#    Phase C selector 激活单独排期（known limitation）。
 
 version: "1.0"
 status: not_yet_authoritative
